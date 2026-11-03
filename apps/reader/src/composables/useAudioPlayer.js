@@ -69,6 +69,7 @@ export function useAudioPlayer() {
     if (state.status === 'empty' || state.status === 'error') return;
     try {
       await audio.play();
+      state.error = '';
     } catch (error) {
       // AbortError means a newer pause/seek/load interrupted this play request.
       if (error.name !== 'AbortError') state.error = 'The audio could not start. Press play to try again.';

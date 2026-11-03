@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Vite forwards `/api` requests to Express on port 3001. The page loads original demo text; audio controls are intentionally disabled until the generation and playback tickets are implemented.
+Open http://127.0.0.1:5173. Vite forwards `/api` requests to Express on port 3001. The page loads the generated Stephen Neural sample with the atomic audio console, live highlighting, and word replay. `/preview.html` opens the same reader. The existing-recording reference is available at `/?passage=pride-and-prejudice`; it has no timings yet.
 
 ## Checks
 

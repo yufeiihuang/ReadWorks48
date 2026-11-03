@@ -65,8 +65,12 @@ https://d1381qenwhm2qw.cloudfront.net/generated/demo/efbf8d68f9ca6f777630-4386b7
 
 A separate 3,824-character input generated one recording with 630 word timings over two chunks. Local cache reuse was verified. Seven unit tests and three infrastructure tests passed. These are functional checks, not a measured perceptual timing or pronunciation score; listen to the samples before demo sign-off.
 
-## Isolated read along preview
+## Integrated reader and preview
 
-Open `/preview.html` on the deployed reader (or `http://127.0.0.1:5173/preview.html` during local development). This separate Vue entry point loads the generated Stephen manifest, displays native browser audio controls, highlights words from the audio clock, and supports word replay. Arrow keys move focus between words; Enter or Space replays the selected word.
+The main reader now loads the published Stephen sample manifest and connects it to the team's atomic audio console through `useAudioPlayer`. `PassageText.vue` renders words using the manifest's UTF-16 offsets; its replay event calls the same controller's `playFrom` method. Highlighting derives from that controller's audio clock, including seeks and speed changes. There is only one playback controller per reader.
 
-The main `App.vue` and atomic console are untouched. This preview can be removed after the production console and shared playback controller are integrated. Its source is `apps/reader/src/preview/`; the additional Vite entry is configured in `apps/reader/vite.config.js`. The local `/generated` proxy reads approved demonstration assets from the deployed CloudFront distribution.
+`/preview.html` remains a compatible alias of this same reader. Temporary native browser controls have been removed. Locally, the `/generated` proxy reads the approved demo assets from CloudFront. If generated assets are unavailable, the reader falls back to the plain API passage and explains that audio is temporarily unavailable.
+
+The reference route `/?passage=pride-and-prejudice` still loads the teammate's existing ReadWorks recording. It intentionally has no word highlighting until timing data is prepared for that exact human/existing recording. Polly timestamps from a different recording must never be reused for it.
+
+Run synchronization boundary tests with `node --test apps/reader/test/*.test.js`.

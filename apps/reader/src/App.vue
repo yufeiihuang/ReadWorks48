@@ -1,22 +1,42 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import AudioConsole from './components/AudioConsole.vue';
+import PassageText from './components/PassageText.vue';
+import { findActiveToken } from './lib/wordTiming.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
 // Playback test passage with ReadWorks' existing recording; open /?passage=pride-and-prejudice.
 // Loaded in the reader until the API passage routes (SW-10) serve more than the demo fixture.
 const referencePassages = { 'pride-and-prejudice': () => import('../../../shared/fixtures/pride-and-prejudice.json') };
 const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
 const passage = ref(null);
+const generationWarning = ref('');
 const error = ref('');
 const saved = ref(false);
 const projector = ref(false);
 const player = useAudioPlayer();
 const audioUnavailable = computed(() => ['empty', 'error'].includes(player.state.status));
+const activeTokenId = computed(() => {
+  if (audioUnavailable.value || (!player.state.playing && player.state.currentTime === 0)) return null;
+  return findActiveToken(passage.value?.timings || [], player.state.currentTime, player.state.duration);
+});
+function replayWord(tokenId) {
+  const timing = passage.value?.timings?.find(item => item.tokenId === tokenId);
+  if (timing && !audioUnavailable.value) player.playFrom(timing.startMs / 1000);
+}
 const isReference = computed(() => passage.value?.generation?.status === 'reference');
 const reload = () => window.location.reload();
 const printPassage = () => window.print();
 const wordCount = computed(() => passage.value?.paragraphs.reduce((count, p) => count + p.text.trim().split(/\s+/).length, 0) || 0);
 async function loadPassage(id) {
+  if (id === 'demo') {
+    try {
+      const generated = await fetch('/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json');
+      if (!generated.ok) throw new Error('Generated passage unavailable');
+      const manifest = await generated.json();
+      if (!manifest.audio?.url || !manifest.tokens?.length || manifest.timings?.length !== manifest.tokens.length) throw new Error('Incomplete generated passage');
+      return manifest;
+    } catch { generationWarning.value = 'Generated audio is temporarily unavailable. The passage is still available to read.'; }
+  }
   if (referencePassages[id]) return (await referencePassages[id]()).default;
   const response = await fetch(`/api/passages/${encodeURIComponent(id)}`);
   if (!response.ok) throw new Error('The passage could not be loaded.');
@@ -68,14 +88,16 @@ onMounted(async () => {
           />
           <p class="audio-status">
             <span role="status">
-              <template v-if="player.state.status === 'empty'">Audio will be available once this passage is generated.</template>
+              <template v-if="generationWarning">{{ generationWarning }}</template>
+              <template v-else-if="player.state.status === 'empty'">Audio will be available once this passage is generated.</template>
               <template v-else-if="player.state.status === 'error' || player.state.error">{{ player.state.error }}</template>
               <template v-else-if="player.state.status === 'loading'">Loading audio…</template>
               <template v-else-if="isReference">Existing ReadWorks recording. Word highlighting arrives with generated timings.</template>
+              <template v-else>Stephen · Polly Neural. Select any word to hear it again.</template>
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
-          <div class="passage"><p v-for="paragraph in passage.paragraphs" :key="paragraph.id">{{ paragraph.text }}</p></div>
+          <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="activeTokenId" :replay-enabled="!audioUnavailable" @replay="replayWord" />
           <p class="passage-credit">{{ isReference ? 'Passage text and recording from ReadWorks · used to test playback' : 'Original demonstration passage · SoundWorks' }}</p>
         </article>
         <aside class="details" aria-labelledby="details-title">
@@ -83,7 +105,7 @@ onMounted(async () => {
           <ul><li>Words: {{ wordCount }}</li><li>Language: English</li><li>Fiction</li></ul>
           <h3>Audio</h3>
           <template v-if="isReference"><p>Existing ReadWorks recording</p><p class="muted">Reference audio for testing the player</p></template>
-          <template v-else><p>Polly Neural</p><p class="muted">Not generated yet</p></template>
+          <template v-else><p>{{ passage.audio?.voice ? `${passage.audio.voice} · Polly Neural` : 'Polly Neural' }}</p><p class="muted">{{ passage.generation?.status === 'ready' ? 'Generated in the AWS sandbox' : 'Not generated yet' }}</p></template>
           <h3>About this passage</h3><p>{{ isReference ? 'A public ReadWorks passage used to test playback before generated audio is ready.' : 'Original sample text for the SoundWorks reader preview.' }}</p>
         </aside>
       </div>
