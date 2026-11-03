@@ -6,7 +6,7 @@
 - Separate private website bucket, readable only through CloudFront origin access control.
 - HTTPS CloudFront reader URL. `/api/*` routes to the Express API without caching. `/generated/*` routes to prepared passage assets. Relative browser URLs avoid cross-origin requests.
 - Node.js 24 Express Lambda and HTTP API exposing only GET passage routes. The sample is bundled into the function; S3-backed passage discovery is follow-up work.
-- Python 3.14 generation Lambda with no public endpoint. It has access to `generated/*` and `polly:SynthesizeSpeech`. This is a foundation, not working narration generation.
+- Python 3.14 generation Lambda with no public endpoint. It has access to `generated/*` and `polly:SynthesizeSpeech`. It generates Stephen Neural audio and word timings from a complete passage object.
 
 Only approved/public demonstration content belongs in publicly delivered paths. Never publish credentials, student records, or private source documents there. No custom domain, database, VM, or VPC is required.
 
@@ -62,7 +62,7 @@ GitHub pushes do not deploy automatically. Coordinate deployments so two builder
 
 Run `node scripts/smoke-deployment.mjs https://READER_DOMAIN` from the repo root. Open ReaderUrl and confirm the sample passage renders. Check `ReaderUrl/api/health` returns `{"status":"ok"}`, `/api/passages` returns a listing, `/api/passages/demo` returns the manifest, and `/api/passages/missing` returns 404. Check developer tools for failed asset requests. Audio is intentionally unavailable in this skeleton.
 
-Use an authenticated AWS Lambda invocation to test the private generation foundation with `{"passageId":"demo"}`; expect `status: not_implemented`, not successful narration. Once generation is implemented, verify a generated audio/timing object through `/generated/...`.
+Use an authenticated AWS Lambda invocation to test the private generation foundation with `{"passage": <complete input passage>}`; expect `status: ready` and a manifest URL. Verify the returned manifest/audio through `/generated/...`. See [generation instructions](generation.md).
 
 ## Cleanup
 
@@ -78,4 +78,4 @@ Deployed November 3, 2026 to `us-west-2`.
 - Checks: reader HTML and static assets, health/list/detail API routes, missing-passage 404, private generation invocation, generated-object delivery through CloudFront, private/versioned buckets, and blocked unauthenticated direct S3 reads.
 - Temporary deployment credentials were removed after verification.
 
-Audio generation is still a stub, as expected for SW-05. The sample manifest remains bundled with Express until the source-adapter/storage tickets are completed.
+The initial SW-05 deployment used a generation stub. The subsequent builder B update implements Stephen Neural preparation. The sample manifest remains bundled with Express until the source-adapter/storage tickets are completed.

@@ -1,0 +1,179 @@
+"""Polly Neural narration with byte-accurate word mapping and reusable WAV assets."""
+import hashlib
+import io
+import json
+import re
+import wave
+from contextlib import closing
+from pathlib import Path
+from urllib.parse import quote
+
+SAMPLE_RATE = 16000
+PIPELINE_VERSION = 2
+
+
+def validate_passage(passage):
+    if not isinstance(passage, dict):
+        raise ValueError('Passage must be a JSON object')
+    for field in ('id', 'revision', 'title', 'language', 'paragraphs'):
+        if field not in passage:
+            raise ValueError(f'Missing required field: {field}')
+    if not isinstance(passage['id'], str) or not re.fullmatch(r'[A-Za-z0-9_-]+', passage['id']):
+        raise ValueError('Passage id must contain only letters, numbers, underscores, or hyphens')
+    if not isinstance(passage['language'], str) or not passage['language']:
+        raise ValueError('language must be a nonempty string')
+    if not isinstance(passage['title'], str) or not passage['title'].strip():
+        raise ValueError('title must be a nonempty string')
+    if not isinstance(passage['revision'], int) or isinstance(passage['revision'], bool) or passage['revision'] < 1:
+        raise ValueError('revision must be a positive integer')
+    paragraphs = passage['paragraphs']
+    if not isinstance(paragraphs, list) or not paragraphs:
+        raise ValueError('paragraphs must be a nonempty list')
+    ids = set()
+    for paragraph in paragraphs:
+        if not isinstance(paragraph, dict) or not isinstance(paragraph.get('id'), str) or not paragraph['id']:
+            raise ValueError('Every paragraph needs a nonempty string id')
+        if paragraph['id'] in ids:
+            raise ValueError('Paragraph ids must be unique')
+        ids.add(paragraph['id'])
+        if not isinstance(paragraph.get('text'), str) or not paragraph['text'].strip():
+            raise ValueError('Every paragraph needs nonempty text')
+    if sum(len(p['text']) for p in paragraphs) > 100000:
+        raise ValueError('MVP passage limit is 100,000 characters')
+
+
+def chunks(text, limit=2800):
+    """Preserve exact text; prefer sentence or whitespace boundaries within Polly limits."""
+    start = 0
+    while start < len(text):
+        end = min(start + limit, len(text))
+        if end < len(text):
+            candidates = list(re.finditer(r'[.!?][\u201d\u2019\"\']*\s+|\s+', text[start:end]))
+            sentences = [m for m in candidates if m.group()[0] in '.!?']
+            chosen = sentences[-1] if sentences else (candidates[-1] if candidates else None)
+            if chosen is None:
+                raise ValueError('A word exceeds the narration chunk limit')
+            end = start + chosen.end()
+        yield start, text[start:end]
+        start = end
+
+
+def utf16_length(text):
+    return len(text.encode('utf-16-le')) // 2
+
+
+def map_marks(text, marks, paragraph, char_offset, time_offset, duration_ms, token_index):
+    raw = text.encode('utf-8')
+    tokens, timings, covered = [], [], set()
+    last_end, last_time = 0, -1
+    for mark in marks:
+        if mark.get('type') != 'word':
+            continue
+        start, end, time = mark['start'], mark['end'], mark['time']
+        if not (isinstance(start, int) and isinstance(end, int) and isinstance(time, int)):
+            raise ValueError('Invalid speech mark types')
+        if not (last_end <= start < end <= len(raw)) or not (last_time <= time < duration_ms):
+            raise ValueError('Speech mark offsets/timestamps are out of range or unordered')
+        prefix = raw[:start].decode('utf-8')
+        word = raw[start:end].decode('utf-8')
+        if word != mark['value']:
+            raise ValueError(f'Speech mark does not match display text: {word!r}')
+        begin = len(prefix)
+        covered.update(range(begin, begin + len(word)))
+        token_id = f'w{token_index + len(tokens)}'
+        absolute_start = char_offset + begin
+        tokens.append({'id': token_id, 'paragraphId': paragraph['id'], 'text': word,
+                       'start': utf16_length(paragraph['text'][:absolute_start]),
+                       'end': utf16_length(paragraph['text'][:absolute_start + len(word)])})
+        timings.append({'tokenId': token_id, 'startMs': round(time_offset + time, 3)})
+        last_end, last_time = end, time
+    missing = [i for i, char in enumerate(text) if char.isalnum() and i not in covered]
+    if missing:
+        raise ValueError(f'Unmapped spoken text near {text[max(0, missing[0]-10):missing[0]+20]!r}')
+    return tokens, timings
+
+
+def fingerprint(passage, voice):
+    payload = {'pipelineVersion': PIPELINE_VERSION, 'passage': {k: passage[k] for k in ('id', 'revision', 'title', 'language', 'paragraphs')},
+               'engine': 'neural', 'voice': voice, 'sampleRate': SAMPLE_RATE}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def read_stream(response):
+    with closing(response['AudioStream']) as stream:
+        return stream.read()
+
+
+def generate(passage, output_root, polly, voice='Stephen', force=False):
+    validate_passage(passage)
+    digest = fingerprint(passage, voice)
+    directory = Path(output_root) / passage['id'] / digest[:20]
+    manifest_path = directory / 'manifest.json'
+    if not force and manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        audio_path = directory / 'audio.wav'
+        if (manifest.get('generation', {}).get('textHash') == digest and audio_path.exists()
+                and hashlib.sha256(audio_path.read_bytes()).hexdigest() == manifest['audio']['sha256']
+                and (directory / 'timings.json').exists()
+                and (directory / 'timings.json').read_text() == json.dumps(manifest['timings'], ensure_ascii=False, indent=2)):
+            return manifest, directory, True
+    directory.mkdir(parents=True, exist_ok=True)
+    audio = bytearray()
+    tokens, timings, raw_chunks = [], [], []
+    billed = 0
+    for paragraph in passage['paragraphs']:
+        for char_offset, text in chunks(paragraph['text']):
+            if not text.strip():
+                continue
+            settings = dict(Text=text, TextType='text', VoiceId=voice, Engine='neural', LanguageCode=passage['language'])
+            audio_response = polly.synthesize_speech(**settings, OutputFormat='pcm', SampleRate=str(SAMPLE_RATE))
+            pcm = read_stream(audio_response)
+            marks_response = polly.synthesize_speech(**settings, OutputFormat='json', SpeechMarkTypes=['word'])
+            marks = [json.loads(line) for line in read_stream(marks_response).decode().splitlines() if line.strip()]
+            if not pcm or len(pcm) % 2:
+                raise ValueError('Polly returned invalid 16-bit PCM audio')
+            offset_ms = len(audio) / 2 / SAMPLE_RATE * 1000
+            duration_ms = len(pcm) / 2 / SAMPLE_RATE * 1000
+            mapped, times = map_marks(text, marks, paragraph, char_offset, offset_ms, duration_ms, len(tokens))
+            tokens.extend(mapped)
+            timings.extend(times)
+            raw_chunks.append({'paragraphId': paragraph['id'], 'characterOffset': char_offset,
+                               'audioOffsetMs': offset_ms, 'durationMs': duration_ms, 'marks': marks})
+            audio.extend(pcm)
+            # A short boundary pause is part of both the recording and cumulative timing.
+            audio.extend(b'\x00\x00' * int(SAMPLE_RATE * .15))
+            billed += audio_response.get('RequestCharacters', len(text)) + marks_response.get('RequestCharacters', len(text))
+    if not tokens:
+        raise ValueError('No spoken words were generated')
+    buffer = io.BytesIO()
+    with wave.open(buffer, 'wb') as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(SAMPLE_RATE)
+        wav.writeframes(audio)
+    wav_data = buffer.getvalue()
+    audio_hash = hashlib.sha256(wav_data).hexdigest()
+    asset_version = digest[:20] + '-' + audio_hash[:12]
+    relative = f"/generated/{quote(passage['id'], safe='')}/{asset_version}"
+    manifest = {**passage, 'schemaVersion': 1, 'assetVersion': asset_version, 'tokens': tokens,
+                'audio': {'url': relative + '/audio.wav', 'format': 'wav', 'engine': 'neural', 'voice': voice,
+                          'durationMs': len(audio) / 2 / SAMPLE_RATE * 1000, 'sha256': hashlib.sha256(wav_data).hexdigest()},
+                'timings': timings, 'timingsUrl': relative + '/timings.json',
+                'generation': {'status': 'ready', 'engine': 'neural', 'voice': voice, 'textHash': digest,
+                               'sampleRate': SAMPLE_RATE, 'chunkCount': len(raw_chunks), 'requestCharacters': billed}}
+    (directory / 'audio.wav').write_bytes(wav_data)
+    for name, data in [('timings.json', timings), ('speech-marks.json', raw_chunks)]:
+        (directory / name).write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    # Publish completion last; a failed generation never installs a ready manifest.
+    temporary = directory / 'manifest.tmp'
+    temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
+    temporary.replace(manifest_path)
+    return manifest, directory, False
+
+
+def publish(manifest, directory, s3, bucket):
+    prefix = f"generated/{manifest['id']}/{manifest['assetVersion']}"
+    for filename, content_type in [('audio.wav', 'audio/wav'), ('timings.json', 'application/json'), ('speech-marks.json', 'application/json'), ('manifest.json', 'application/json')]:
+        s3.upload_file(str(Path(directory) / filename), bucket, f'{prefix}/{filename}',
+                       ExtraArgs={'ContentType': content_type, 'CacheControl': 'public,max-age=31536000,immutable'})
+    return f'/{prefix}/manifest.json'

@@ -43,7 +43,7 @@ source generation/.venv/bin/activate
 pip install -r generation/requirements.txt
 ```
 
-The generation entry point currently validates required input fields only. Polly calls are follow-up work; the CDK stack packages the generation Lambda scaffold. No AWS credentials are needed for local development. Never put credentials in frontend files or commit them.
+The generation workflow now produces Stephen Neural audio and word timings, including automatic chunking for long passages. See [generation instructions](docs/generation.md) for one-command preparation, S3 publishing, and the reader contract. No AWS credentials are needed for local development. Never put credentials in frontend files or commit them.
 
 ## Infrastructure
 
@@ -55,4 +55,4 @@ npm run diff -w @soundworks/infra
 npm run deploy -w @soundworks/infra -- --outputs-file cdk.out/outputs.json
 ```
 
-The generation Lambda intentionally returns `not_implemented` until SW-02/SW-08. No generation endpoint is public. Deployment requires temporary sandbox credentials and may require CDK bootstrapping. Buckets are retained when the stack is deleted; see the cleanup instructions.
+The private generation Lambda accepts a complete passage object and prepares Stephen Neural narration and timings. No generation endpoint is public. Deployment requires temporary sandbox credentials and may require CDK bootstrapping. Buckets are retained when the stack is deleted; see the cleanup instructions.

@@ -44,8 +44,8 @@ const generator = new LambdaFunction(stack, 'AudioGeneration', {
   handler: 'handler.handler',
   code: Code.fromAsset(resolve(root, 'generation'), { exclude: ['.venv', '__pycache__', 'output'] }),
   memorySize: 256,
-  timeout: Duration.seconds(60),
-  environment: { ASSET_BUCKET: assets.bucketName, POLLY_ENGINE: 'neural' },
+  timeout: Duration.seconds(300),
+  environment: { ASSET_BUCKET: assets.bucketName, POLLY_ENGINE: 'neural', POLLY_VOICE: 'Stephen' },
 });
 // Generation is IAM-invoked only, never exposed by the public reader API.
 assets.grantReadWrite(generator, 'generated/*');
