@@ -5,7 +5,7 @@
 - Private, encrypted, versioned S3 passage bucket. Only `generated/*` is readable through CloudFront; other objects remain private.
 - Separate private website bucket, readable only through CloudFront origin access control.
 - HTTPS CloudFront reader URL. `/api/*` routes to the Express API without caching. `/generated/*` routes to prepared passage assets. Relative browser URLs avoid cross-origin requests.
-- Node.js 24 Express Lambda and HTTP API exposing only GET passage routes. The sample is bundled into the function; S3-backed passage discovery is follow-up work.
+- Node.js 24 Express Lambda and HTTP API exposing only GET passage routes. The sample is bundled into the function. For a ReadWorks UUID, the API reads ReadWorks' public product JSON and returns display text so ungenerated passages stay readable.
 - Python 3.14 generation Lambda with no public endpoint, plus an S3 notification for `passages/*.json` uploads and edits. It has access to `generated/*` and `polly:SynthesizeSpeech`. It generates Stephen Neural audio and word timings from a complete passage object.
 
 Only approved/public demonstration content belongs in publicly delivered paths. Never publish credentials, student records, or private source documents there. No custom domain, database, VM, or VPC is required.

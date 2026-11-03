@@ -33,7 +33,7 @@ python generation/generate.py 2b781dab-4521-40d2-a9b6-ad5f2bb0ba98 --bucket YOUR
 
 `generation/readworks.py` uses `uuid` as the passage id, maps `lang` `EN` to `en-US`, and splits `text` on line breaks into paragraphs. `revision` is always 1 because the input hash already detects text changes. Ebook-style passages, other languages, and passages whose `content` shows words that `text` lacks (other than figures and captions) stop with an error. The reader displays paragraph text only, so images and vocabulary markup from `content` aren't shown yet.
 
-Publishing also writes `generated/PASSAGE_ID/current.json`, including on a cache hit, which names the newest manifest. Open a generated passage at `/?passage=PASSAGE_ID`. The pointer is cached for 60 seconds, so a new version can take about a minute to appear. Versioned files never change.
+Publishing also writes `generated/PASSAGE_ID/current.json`, including on a cache hit, which names the newest manifest. Open a passage at `/?passage=PASSAGE_ID`. If a ReadWorks passage hasn't been generated, the API reads its public product JSON and the reader shows the text with a message that audio isn't ready. Opening a passage never starts generation. The pointer is cached for 60 seconds, so a new version can take about a minute to appear. Versioned files never change.
 
 ## Output contract for the reader
 
