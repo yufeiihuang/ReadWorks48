@@ -185,6 +185,13 @@ def publish(manifest, directory, s3, bucket):
     return f'/{prefix}/manifest.json'
 
 
+def publish_current(manifest, manifest_url, s3, bucket):
+    """Point the passage's permanent address at this version so the reader can find it."""
+    s3.put_object(Bucket=bucket, Key=f"generated/{manifest['id']}/current.json",
+                  Body=json.dumps({'manifestUrl': manifest_url, 'assetVersion': manifest['assetVersion']}).encode(),
+                  ContentType='application/json', CacheControl='public,max-age=60')
+
+
 def cache_key(passage, voice):
     return f"generated/{passage['id']}/cache/{fingerprint(passage, voice)}.json"
 
@@ -238,11 +245,14 @@ def prepare(passage, output_root, polly, s3=None, bucket=None, voice='Stephen', 
     if bucket and not force:
         manifest = cached_manifest(passage, voice, s3, bucket)
         if manifest is not None:
+            url = manifest['audio']['url'].rsplit('/', 1)[0] + '/manifest.json'
+            publish_current(manifest, url, s3, bucket)
             return {'manifest': manifest, 'directory': None, 'cached': True, 'cacheSource': 's3',
-                    'manifestUrl': manifest['audio']['url'].rsplit('/', 1)[0] + '/manifest.json',
-                    'synthesisRequestCharacters': 0}
+                    'manifestUrl': url, 'synthesisRequestCharacters': 0}
     manifest, directory, cached = generate(passage, output_root, polly, voice=voice, force=force)
     url = publish(manifest, directory, s3, bucket) if bucket else None
+    if bucket:
+        publish_current(manifest, url, s3, bucket)
     return {'manifest': manifest, 'directory': directory, 'cached': cached,
             'cacheSource': 'local' if cached else None, 'manifestUrl': url,
             'synthesisRequestCharacters': 0 if cached else manifest['generation']['requestCharacters']}
