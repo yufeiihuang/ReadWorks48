@@ -64,3 +64,9 @@ On November 3, 2026, Stephen Neural was confirmed available in `us-west-2`. Loca
 https://d1381qenwhm2qw.cloudfront.net/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json
 
 A separate 3,824-character input generated one recording with 630 word timings over two chunks. Local cache reuse was verified. Seven unit tests and three infrastructure tests passed. These are functional checks, not a measured perceptual timing or pronunciation score; listen to the samples before demo sign-off.
+
+## Isolated read along preview
+
+Open `/preview.html` on the deployed reader (or `http://127.0.0.1:5173/preview.html` during local development). This separate Vue entry point loads the generated Stephen manifest, displays native browser audio controls, highlights words from the audio clock, and supports word replay. Arrow keys move focus between words; Enter or Space replays the selected word.
+
+The main `App.vue` and atomic console are untouched. This preview can be removed after the production console and shared playback controller are integrated. Its source is `apps/reader/src/preview/`; the additional Vite entry is configured in `apps/reader/vite.config.js`. The local `/generated` proxy reads approved demonstration assets from the deployed CloudFront distribution.
