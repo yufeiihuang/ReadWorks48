@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
-import { findActiveToken } from './lib/wordTiming.js';
+import { findActiveToken, findSentenceStartSeconds } from './lib/wordTiming.js';
 import { loadGeneratedPassage } from './lib/generatedPassage.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
 import { useFollowAlong } from './composables/useFollowAlong.js';
@@ -40,6 +40,26 @@ function replayWord(tokenId) {
 }
 function restartPassage() { resumeFollowing(); player.restart(); }
 function seekPassage(seconds) { resumeFollowing(); player.seek(seconds); }
+// Sentence replay needs word timings; without them a sentence cannot be located.
+const canReplaySentence = computed(() =>
+  !audioUnavailable.value
+  && (passage.value?.timings?.length || 0) > 0
+  && (passage.value?.tokens?.length || 0) > 0
+);
+// Seek to the start of the sentence at the current playback position, then keep
+// playing. Reuses the single audio controller via playFrom (seek + play), and
+// re-engages follow-along scrolling like the other transport controls.
+function replaySentence() {
+  if (!canReplaySentence.value) return;
+  const seconds = findSentenceStartSeconds(
+    passage.value?.paragraphs || [],
+    passage.value?.tokens || [],
+    passage.value?.timings || [],
+    player.state.currentTime,
+    player.state.duration,
+  );
+  if (Number.isFinite(seconds)) { resumeFollowing(); player.playFrom(seconds); }
+}
 const isReference = computed(() => passage.value?.generation?.status === 'reference');
 const isReadWorks = computed(() => passage.value?.source?.provider === 'readworks');
 const reload = () => window.location.reload();
@@ -95,8 +115,10 @@ onMounted(async () => {
             :duration="player.state.duration"
             :volume="player.state.volume"
             :playback-rate="player.state.playbackRate"
+            :can-replay-sentence="canReplaySentence"
             @toggle-play="player.toggle"
             @restart="restartPassage"
+            @replay-sentence="replaySentence"
             @seek="seekPassage"
             @volume-change="player.setVolume"
             @speed-change="player.setPlaybackRate"
