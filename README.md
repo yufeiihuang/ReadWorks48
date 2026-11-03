@@ -43,7 +43,7 @@ source generation/.venv/bin/activate
 pip install -r generation/requirements.txt
 ```
 
-The generation workflow now produces Stephen Neural audio and word timings, including automatic chunking for long passages. See [generation instructions](docs/generation.md) for one-command preparation, S3 publishing, and the reader contract. No AWS credentials are needed for local development. Never put credentials in frontend files or commit them.
+The generation workflow now produces Stephen Neural audio and word timings, including automatic chunking for long passages. See [generation instructions](docs/generation.md) for one-command preparation, S3 publishing, shared caching, automatic regeneration after `passages/*.json` edits, and the reader contract. No AWS credentials are needed for local development. Never put credentials in frontend files or commit them.
 
 ## Infrastructure
 

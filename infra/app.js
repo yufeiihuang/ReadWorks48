@@ -1,5 +1,5 @@
 import { App, Stack, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
-import { Bucket, BlockPublicAccess, BucketEncryption } from 'aws-cdk-lib/aws-s3';
+import { Bucket, BlockPublicAccess, BucketEncryption, EventType } from 'aws-cdk-lib/aws-s3';
 import { Distribution, ViewerProtocolPolicy, CachePolicy, OriginRequestPolicy, AllowedMethods } from 'aws-cdk-lib/aws-cloudfront';
 import { S3BucketOrigin, HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
@@ -7,6 +7,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Function as LambdaFunction, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { HttpApi, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
@@ -49,6 +50,9 @@ const generator = new LambdaFunction(stack, 'AudioGeneration', {
 });
 // Generation is IAM-invoked only, never exposed by the public reader API.
 assets.grantReadWrite(generator, 'generated/*');
+assets.grantRead(generator, 'passages/*');
+assets.addEventNotification(EventType.OBJECT_CREATED, new LambdaDestination(generator),
+  { prefix: 'passages/', suffix: '.json' });
 generator.addToRolePolicy(new PolicyStatement({ actions: ['polly:SynthesizeSpeech'], resources: ['*'] }));
 const distribution = new Distribution(stack, 'ReaderDistribution', {
   defaultRootObject: 'index.html',

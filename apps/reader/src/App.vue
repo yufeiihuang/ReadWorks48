@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
 import { findActiveToken } from './lib/wordTiming.js';
@@ -10,16 +10,25 @@ const referencePassages = { 'pride-and-prejudice': () => import('../../../shared
 const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
 const passage = ref(null);
 const generationWarning = ref('');
+const highlightDismissed = ref(false);
 const error = ref('');
 const saved = ref(false);
 const projector = ref(false);
 const player = useAudioPlayer();
 const audioUnavailable = computed(() => ['empty', 'error'].includes(player.state.status));
 const activeTokenId = computed(() => {
-  if (audioUnavailable.value || (!player.state.playing && player.state.currentTime === 0)) return null;
+  if (highlightDismissed.value || audioUnavailable.value || (!player.state.playing && player.state.currentTime === 0)) return null;
   return findActiveToken(passage.value?.timings || [], player.state.currentTime, player.state.duration);
 });
+watch(() => player.state.playing, playing => { if (playing) highlightDismissed.value = false; });
+function dismissWordSelection(event) {
+  if (event.target.closest('.audio-toolbar')) { highlightDismissed.value = false; return; }
+  if (event.target.closest('button, a, input, select, label')) return;
+  highlightDismissed.value = true;
+  document.activeElement?.closest('.read-along-text button')?.blur();
+}
 function replayWord(tokenId) {
+  highlightDismissed.value = false;
   const timing = passage.value?.timings?.find(item => item.tokenId === tokenId);
   if (timing && !audioUnavailable.value) player.playFrom(timing.startMs / 1000);
 }
@@ -42,7 +51,9 @@ async function loadPassage(id) {
   if (!response.ok) throw new Error('The passage could not be loaded.');
   return response.json();
 }
+onBeforeUnmount(() => document.removeEventListener('click', dismissWordSelection));
 onMounted(async () => {
+  document.addEventListener('click', dismissWordSelection);
   try {
     passage.value = await loadPassage(passageId);
     player.load(passage.value.audio?.url);

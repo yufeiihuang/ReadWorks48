@@ -3,7 +3,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from pipeline import generate, publish, validate_passage
+from pipeline import prepare, validate_passage
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
     parser.add_argument('--region', default='us-west-2')
     parser.add_argument('--profile')
     parser.add_argument('--bucket', help='Optional S3 destination; manifest is uploaded last')
-    parser.add_argument('--force', action='store_true', help='Regenerate even when matching local assets exist')
+    parser.add_argument('--force', action='store_true', help='Bypass both the S3 and local caches')
     args = parser.parse_args()
     try:
         passage = json.loads(args.passage.read_text())
@@ -27,11 +27,16 @@ def main():
         from botocore.config import Config
         session = boto3.Session(profile_name=args.profile, region_name=args.region)
         polly = session.client('polly', config=Config(retries={'mode': 'standard', 'max_attempts': 4}))
-        manifest, directory, cached = generate(passage, args.output, polly, voice=args.voice, force=args.force)
-        result = {'manifest': str(directory / 'manifest.json'), 'audio': str(directory / 'audio.wav'),
-                  'cached': cached, 'words': len(manifest['tokens']), 'generation': manifest['generation']}
+        prepared = prepare(passage, args.output, polly, s3=session.client('s3') if args.bucket else None,
+                           bucket=args.bucket, voice=args.voice, force=args.force)
+        manifest, directory = prepared['manifest'], prepared['directory']
+        result = {'manifest': str(directory / 'manifest.json') if directory else prepared['manifestUrl'],
+                  'audio': str(directory / 'audio.wav') if directory else manifest['audio']['url'],
+                  'cached': prepared['cached'], 'cacheSource': prepared['cacheSource'],
+                  'synthesisRequestCharacters': prepared['synthesisRequestCharacters'],
+                  'words': len(manifest['tokens']), 'generation': manifest['generation']}
         if args.bucket:
-            result['manifestUrl'] = publish(manifest, directory, session.client('s3'), args.bucket)
+            result['manifestUrl'] = prepared['manifestUrl']
         print(json.dumps(result, indent=2))
     except Exception as error:
         print(f'Generation failed: {error}', file=sys.stderr)
