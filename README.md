@@ -56,3 +56,7 @@ npm run deploy -w @soundworks/infra -- --outputs-file cdk.out/outputs.json
 ```
 
 The private generation Lambda accepts a complete passage object and prepares Stephen Neural narration and timings. No generation endpoint is public. Deployment requires temporary sandbox credentials and may require CDK bootstrapping. Buckets are retained when the stack is deleted; see the cleanup instructions.
+
+## Human narration experiment
+
+See [human audio preparation and limitations](docs/human-audio.md). The caretaker sample is available at `/?passage=park-caretaker`, using its original recording with experimental Transcribe-based word matching. Uncertain words are left unhighlighted.

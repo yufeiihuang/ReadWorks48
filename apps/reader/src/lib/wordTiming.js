@@ -4,10 +4,11 @@ export function findActiveToken(timings, seconds, duration = 0) {
   let low = 0, high = timings.length - 1, result = null;
   while (low <= high) {
     const middle = (low + high) >> 1;
-    if (timings[middle].startMs <= seconds * 1000) { result = timings[middle].tokenId; low = middle + 1; }
+    if (timings[middle].startMs <= seconds * 1000) { result = timings[middle]; low = middle + 1; }
     else high = middle - 1;
   }
-  return result;
+  if (result && Number.isFinite(result.endMs) && seconds * 1000 >= result.endMs) return null;
+  return result?.tokenId ?? null;
 }
 
 // Sentence terminators and the trailing characters (closing quotes/brackets) that
@@ -94,10 +95,14 @@ export function findSentenceStartSeconds(paragraphs, tokens, timings, seconds, d
   // last sentence.
   let activeId = findActiveToken(timings, seconds, duration);
   if (!activeId) {
-    const atOrPastEnd =
-      (duration > 0 && Number.isFinite(seconds) && seconds >= duration) ||
-      (Number.isFinite(seconds) && seconds * 1000 >= timings[timings.length - 1].startMs);
-    activeId = atOrPastEnd ? timings[timings.length - 1].tokenId : timings[0].tokenId;
+    // Human recordings have deliberate gaps for uncertain words. Sentence replay
+    // should use the preceding word there, not jump back to the first sentence.
+    const timeMs = Number.isFinite(seconds) ? seconds * 1000 : 0;
+    activeId = timings[0].tokenId;
+    for (const timing of timings) {
+      if (timing.startMs > timeMs) break;
+      activeId = timing.tokenId;
+    }
   }
 
   const activeToken = tokenById.get(activeId);

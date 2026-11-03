@@ -9,11 +9,16 @@ import { onBeforeUnmount, reactive, readonly } from 'vue';
 // - playFrom(seconds) seeks and plays; call it with a word's startMs / 1000 on click.
 export function useAudioPlayer() {
   const audio = new Audio();
-  audio.preload = 'metadata';
+  audio.preload = 'auto';
+  // Keep the one media element in the DOM for browser media lifecycle and diagnostics.
+  audio.hidden = true;
+  audio.dataset.soundworksAudio = 'true';
+  document.body.appendChild(audio);
 
   const state = reactive({
     status: 'empty', // empty | loading | ready | error
     playing: false,
+    buffering: false,
     currentTime: 0,
     duration: 0,
     volume: 1,
@@ -28,12 +33,15 @@ export function useAudioPlayer() {
   const syncDuration = () => { state.duration = Number.isFinite(audio.duration) ? audio.duration : 0; };
   const tick = () => { syncTime(); frame = requestAnimationFrame(tick); };
   const stopTicking = () => { cancelAnimationFrame(frame); frame = 0; };
-  const stopped = () => { state.playing = false; stopTicking(); syncTime(); };
+  const stopped = () => { state.buffering = false; state.playing = false; stopTicking(); syncTime(); };
 
   const listeners = {
     loadedmetadata: () => { syncDuration(); if (state.status === 'loading') state.status = 'ready'; },
     durationchange: syncDuration,
     play: () => { state.playing = true; if (!frame) tick(); },
+    playing: () => { state.buffering = false; },
+    waiting: () => { state.buffering = !audio.paused; },
+    canplay: () => { state.buffering = false; },
     pause: stopped,
     ended: stopped,
     seeked: syncTime,
@@ -45,14 +53,18 @@ export function useAudioPlayer() {
       if (!audio.getAttribute('src')) return;
       stopped();
       state.status = 'error';
-      state.error = 'The audio could not be loaded.';
+      state.error = audio.error?.code === 2
+        ? 'The audio download was interrupted. Try again.'
+        : audio.error?.code === 3
+          ? 'The recording could not be decoded. Try again.'
+          : 'The audio could not be loaded. Try again.';
     },
   };
   for (const [name, listener] of Object.entries(listeners)) audio.addEventListener(name, listener);
 
   function load(url) {
     stopTicking();
-    Object.assign(state, { playing: false, currentTime: 0, duration: 0, error: '' });
+    Object.assign(state, { buffering: false, playing: false, currentTime: 0, duration: 0, error: '' });
     source = url || '';
     if (!source) {
       audio.removeAttribute('src');
@@ -112,7 +124,7 @@ export function useAudioPlayer() {
   }
 
   function retry() {
-    if (source) load(source);
+    if (source) { load(source); return play(); }
   }
 
   onBeforeUnmount(() => {
@@ -121,6 +133,7 @@ export function useAudioPlayer() {
     for (const [name, listener] of Object.entries(listeners)) audio.removeEventListener(name, listener);
     audio.removeAttribute('src');
     audio.load();
+    audio.remove();
   });
 
   return {
