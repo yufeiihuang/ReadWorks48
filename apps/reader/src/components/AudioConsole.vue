@@ -8,9 +8,11 @@ const props = defineProps({
   duration: { type: Number, default: 0 },
   volume: { type: Number, default: 1 },
   playbackRate: { type: Number, default: 1 },
+  // Sentence replay needs word timings; hidden/disabled when unavailable.
+  canReplaySentence: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['toggle-play', 'restart', 'seek', 'volume-change', 'speed-change']);
+const emit = defineEmits(['toggle-play', 'restart', 'replay-sentence', 'seek', 'volume-change', 'speed-change']);
 const safeDuration = computed(() => Number.isFinite(props.duration) ? Math.max(0, props.duration) : 0);
 const safeCurrentTime = computed(() => Number.isFinite(props.currentTime)
   ? Math.min(Math.max(0, props.currentTime), safeDuration.value)
@@ -44,6 +46,17 @@ function formatTime(seconds) {
         @click="emit('restart')"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2 6M4 4v7h7" /></svg>
+      </button>
+      <button
+        v-if="canReplaySentence"
+        class="control-button replay-sentence"
+        type="button"
+        :disabled="disabled"
+        aria-label="Replay current sentence"
+        title="Replay current sentence"
+        @click="emit('replay-sentence')"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H6a3 3 0 0 0-3 3v1a3 3 0 0 0 3 3h3M12 4 8 7l4 3M15 17h3a3 3 0 0 0 3-3v-1a3 3 0 0 0-3-3h-3M12 20l4-3-4-3" /></svg>
       </button>
       <span class="audio-time">{{ formatTime(safeCurrentTime) }} / {{ safeDuration ? formatTime(safeDuration) : '--:--' }}</span>
       <input
