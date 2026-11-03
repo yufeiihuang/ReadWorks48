@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
+import { nextWordIndex } from '../lib/wordCursor.js';
 const props = defineProps({
   paragraphs: { type: Array, required: true },
   tokens: { type: Array, default: () => [] },
@@ -7,9 +8,14 @@ const props = defineProps({
   replayEnabled: { type: Boolean, default: true },
 });
 const emit = defineEmits(['replay']);
-const focusId = ref(null);
-const buttons = new Map();
-const focusTarget = computed(() => focusId.value || props.tokens[0]?.id);
+// Screen readers read the passage as ordinary sentences, so words are plain text, not buttons.
+// Mouse and touch select a word directly. Keyboard users Tab to the passage once, move a word
+// cursor with the arrow keys (announced politely), and press Enter or Space to read from it.
+const instructionsId = useId();
+const container = ref(null);
+const cursorId = ref(null);
+const announcement = ref('');
+const interactive = computed(() => props.replayEnabled && props.tokens.length > 0);
 const rendered = computed(() => props.paragraphs.map(paragraph => {
   let cursor = 0;
   const parts = [];
@@ -21,25 +27,56 @@ const rendered = computed(() => props.paragraphs.map(paragraph => {
   if (cursor < paragraph.text.length) parts.push({ text: paragraph.text.slice(cursor) });
   return { id: paragraph.id, parts };
 }));
-function moveFocus(event, token) {
-  const index = props.tokens.findIndex(item => item.id === token.id);
-  const next = event.key === 'ArrowRight' ? index + 1 : event.key === 'ArrowLeft' ? index - 1 : event.key === 'Home' ? 0 : event.key === 'End' ? props.tokens.length - 1 : null;
+function select(token) {
+  if (!interactive.value) return;
+  cursorId.value = token.id;
+  emit('replay', token.id);
+}
+function placeCursor() {
+  cursorId.value = props.activeTokenId || cursorId.value || props.tokens[0]?.id || null;
+}
+function onKeydown(event) {
+  if (!interactive.value) return;
+  const index = Math.max(0, props.tokens.findIndex(item => item.id === cursorId.value));
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    select(props.tokens[index]);
+    return;
+  }
+  const next = nextWordIndex(event.key, index, props.tokens.length);
   if (next === null) return;
   event.preventDefault();
-  const target = props.tokens[Math.max(0, Math.min(props.tokens.length - 1, next))];
-  focusId.value = target.id;
-  buttons.get(target.id)?.focus();
+  const token = props.tokens[next];
+  cursorId.value = token.id;
+  // A trailing space makes repeated words ("the", "the") announce again.
+  announcement.value = announcement.value === token.text ? `${token.text} ` : token.text;
+  container.value?.querySelector(`[data-token-id="${CSS.escape(token.id)}"]`)?.scrollIntoView({ block: 'nearest' });
 }
 </script>
 
 <template>
-  <div class="passage read-along-text">
-    <p v-for="paragraph in rendered" :key="paragraph.id"><template v-for="(part, index) in paragraph.parts" :key="part.id || `gap-${index}`"><button v-if="part.id" :ref="el => el ? buttons.set(part.id, el) : buttons.delete(part.id)" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id }" :disabled="!replayEnabled" :tabindex="focusTarget === part.id ? 0 : -1" :aria-label="`Read from ${part.text}`" @click="emit('replay', part.id)" @focus="focusId = part.id" @keydown="moveFocus($event, part)">{{ part.text }}</button><template v-else>{{ part.text }}</template></template></p>
+  <div
+    ref="container"
+    class="passage read-along-text"
+    :role="interactive ? 'group' : undefined"
+    :tabindex="interactive ? 0 : undefined"
+    :aria-label="interactive ? 'Passage text' : undefined"
+    :aria-describedby="interactive ? instructionsId : undefined"
+    @focus="placeCursor"
+    @keydown="onKeydown"
+  >
+    <p v-for="paragraph in rendered" :key="paragraph.id"><template v-for="(part, index) in paragraph.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive }" @click="select(part)">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></p>
   </div>
+  <p :id="instructionsId" hidden>Use the left and right arrow keys to choose a word, then press Enter to read from that word.</p>
+  <span class="sr-only" aria-live="polite">{{ announcement }}</span>
 </template>
 
 <style scoped>
-button { font: inherit; color: inherit; line-height: inherit; border: 0; padding: 0; border-radius: 3px; background: transparent; }
-button:hover:not(:disabled) { background: #e7f1f4; }
-button.spoken-word { background: #ffe28a; box-shadow: 0 0 0 3px #ffe28a; color: #202529; }
+.read-along-text:focus { outline: none; }
+.read-along-text:focus-visible { outline: 3px solid #db9d22; outline-offset: 8px; border-radius: 4px; }
+[data-token-id] { border-radius: 3px; scroll-margin: 160px 0 48px; }
+.replayable { cursor: pointer; }
+.replayable:hover { background: #e7f1f4; }
+.spoken-word { background: #ffe28a; box-shadow: 0 0 0 3px #ffe28a; color: #202529; }
+.read-along-text:focus-visible .word-cursor { outline: 3px solid #db9d22; outline-offset: 2px; }
 </style>

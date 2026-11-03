@@ -29,9 +29,9 @@ const activeTokenId = computed(() => {
 watch(() => player.state.playing, playing => { if (playing) highlightDismissed.value = false; });
 function dismissWordSelection(event) {
   if (event.target.closest('.audio-toolbar')) { highlightDismissed.value = false; return; }
-  if (event.target.closest('button, a, input, select, label')) return;
+  if (event.target.closest('button, a, input, select, label, [data-token-id]')) return;
   highlightDismissed.value = true;
-  document.activeElement?.closest('.read-along-text button')?.blur();
+  document.activeElement?.closest('.read-along-text')?.blur();
 }
 // Space under the sticky console; capped so a tall console on small screens can't hide the band.
 const consoleInset = () => Math.min(Math.max(0, document.querySelector('.audio-toolbar')?.getBoundingClientRect().bottom ?? 0), window.innerHeight * 0.4);
