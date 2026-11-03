@@ -3,8 +3,9 @@ import { followScrollDelta, isManualScrollKey, wordPlacement } from '../lib/foll
 
 // Keeps the spoken word on screen while the passage plays. Any manual scroll (trackpad/wheel,
 // touch, scroll keys, scrollbar) pauses following so a student can look around; resume() turns
-// it back on. Starting playback resumes it too.
-export function useFollowAlong(activeTokenId, playing, { topInset = () => 0 } = {}) {
+// it back on. Starting playback resumes it too. While frozen() is true (a single word playing on
+// its own) the page holds still and playback changes don't count as the student pressing play.
+export function useFollowAlong(activeTokenId, playing, { topInset = () => 0, frozen = () => false } = {}) {
   const following = ref(true);
   const placement = ref('visible');
   let frame = 0;
@@ -52,8 +53,8 @@ export function useFollowAlong(activeTokenId, playing, { topInset = () => 0 } = 
     scroll: () => { if (!following.value && !frame) frame = requestAnimationFrame(measure); },
   };
 
-  watch(activeTokenId, () => (following.value ? follow() : measure()), { flush: 'post' });
-  watch(playing, (now, before) => { if (now && !before) resume(); });
+  watch(activeTokenId, () => (following.value && !frozen() ? follow() : measure()), { flush: 'post' });
+  watch(playing, (now, before) => { if (now && !before && !frozen()) resume(); });
 
   onMounted(() => {
     for (const [name, listener] of Object.entries(listeners)) window.addEventListener(name, listener, { passive: true });

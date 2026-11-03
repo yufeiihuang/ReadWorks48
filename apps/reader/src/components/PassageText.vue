@@ -6,6 +6,7 @@ const props = defineProps({
   tokens: { type: Array, default: () => [] },
   activeTokenId: { type: String, default: null },
   replayEnabled: { type: Boolean, default: true },
+  selectAction: { type: String, default: 'read from that word' },
 });
 const emit = defineEmits(['replay']);
 // Screen readers read the passage as ordinary sentences, so words are plain text, not buttons.
@@ -67,7 +68,7 @@ function onKeydown(event) {
   >
     <p v-for="paragraph in rendered" :key="paragraph.id"><template v-for="(part, index) in paragraph.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive }" @click="select(part)">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></p>
   </div>
-  <p :id="instructionsId" hidden>Use the left and right arrow keys to choose a word, then press Enter to read from that word.</p>
+  <p :id="instructionsId" hidden>Use the left and right arrow keys to choose a word, then press Enter to {{ selectAction }}.</p>
   <span class="sr-only" aria-live="polite">{{ announcement }}</span>
 </template>
 
