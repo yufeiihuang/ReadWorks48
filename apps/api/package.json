@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node --watch local.js",
     "start": "node local.js",
-    "check": "node --check server.js && node --check handler.js && node --check local.js"
+    "check": "node --check server.js && node --check readworks.js && node --check handler.js && node --check local.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "express": "^5.3.0",
