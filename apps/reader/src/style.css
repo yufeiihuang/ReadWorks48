@@ -25,13 +25,21 @@ svg.filled { fill: currentColor; }
 .article-tabs .active { border-bottom-color: var(--teal); color: var(--teal); font-weight: 700; }
 .article-tabs button:disabled { color: #707c84; }
 .article-layout { max-width: 1170px; margin: 0 auto; padding: 26px 24px 64px; display: grid; grid-template-columns: minmax(0, 1fr) 255px; gap: 54px; min-height: 470px; }
-.audio-toolbar { display: flex; align-items: center; gap: 10px; }
-.audio-player { display: flex; align-items: center; gap: 12px; background: #f1f3f4; border-radius: 28px; padding: 8px 14px; min-height: 48px; flex: 1; }
-.audio-player button { border: none; padding: 0; display: grid; place-items: center; background: none; color: #68737a; min-width: 24px; min-height: 30px; }
-.audio-time { font-size: 14px; white-space: nowrap; color: #647079; }
-.audio-player input { min-width: 25px; width: 100%; height: 4px; accent-color: #777; }
-.speed select { border: 1px solid #dce2e4; border-radius: 25px; padding: 12px 10px; background: white; color: #647079; font-size: 14px; }
-.audio-status { font-size: 12px; color: #707c84; margin: 8px 14px 26px; }
+.audio-toolbar { width: 100%; }
+.audio-player { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #f1f3f4; border-radius: 28px; padding: 8px 14px; min-height: 52px; width: 100%; }
+.audio-player .control-button { border: none; padding: 0; display: grid; place-items: center; background: none; color: #345d6b; flex: 0 0 28px; min-height: 32px; }
+.audio-player .control-button:disabled { color: #68737a; }
+.audio-player .control-button svg { width: 21px; height: 21px; }
+.audio-time { font-size: 14px; white-space: nowrap; color: #52616a; }
+.audio-player input[type=range] { height: 5px; accent-color: var(--teal); }
+.audio-progress { flex: 1 1 150px; min-width: 60px; }
+.volume-control { display: flex; align-items: center; gap: 6px; flex: 0 0 105px; color: #52616a; }
+.volume-control svg { flex: 0 0 20px; }
+.volume-control input { width: 75px; min-width: 0; }
+.speed-control { display: flex; align-items: center; gap: 5px; color: #52616a; font-size: 13px; white-space: nowrap; }
+.speed-control select { border: 1px solid #c8d2d6; border-radius: 16px; padding: 4px 7px; background: white; color: #344048; font-size: 14px; }
+.audio-status { font-size: 12px; color: #707c84; margin: 8px 14px 26px; min-height: 1.5em; }
+.audio-status button { border: 0; padding: 0; margin-left: 6px; background: none; color: var(--teal); font-size: 12px; text-decoration: underline; }
 .passage { font-size: 17px; color: #202529; line-height: 1.8; text-align: justify; }
 .passage p { margin: 0 0 24px; }
 .passage-credit { border-top: 1px solid #edf0f0; padding-top: 20px; color: #74808a; font-size: 12px; margin-top: 40px; }
@@ -49,5 +57,6 @@ footer span { margin-left: 18px; }
 .projector .site-header, .projector .details, .projector footer { display: none; }
 .projector .article-layout { grid-template-columns: 1fr; max-width: 1000px; }
 .projector .passage { font-size: 28px; }
-@media (max-width: 760px) { .site-header { padding: 18px 17px; } .brand { font-size: 27px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } }
+@media (max-width: 950px) { .audio-player { border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } }
+@media (max-width: 760px) { .site-header { padding: 18px 17px; } .brand { font-size: 27px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .audio-player { flex-wrap: wrap; border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } }
 @media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer { display: none; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }
