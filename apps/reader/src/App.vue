@@ -1,17 +1,31 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import AudioConsole from './components/AudioConsole.vue';
+import { useAudioPlayer } from './composables/useAudioPlayer.js';
+// Playback test passage with ReadWorks' existing recording; open /?passage=pride-and-prejudice.
+// Loaded in the reader until the API passage routes (SW-10) serve more than the demo fixture.
+const referencePassages = { 'pride-and-prejudice': () => import('../../../shared/fixtures/pride-and-prejudice.json') };
+const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
 const passage = ref(null);
 const error = ref('');
 const saved = ref(false);
 const projector = ref(false);
+const player = useAudioPlayer();
+const audioUnavailable = computed(() => ['empty', 'error'].includes(player.state.status));
+const isReference = computed(() => passage.value?.generation?.status === 'reference');
 const reload = () => window.location.reload();
 const printPassage = () => window.print();
 const wordCount = computed(() => passage.value?.paragraphs.reduce((count, p) => count + p.text.trim().split(/\s+/).length, 0) || 0);
+async function loadPassage(id) {
+  if (referencePassages[id]) return (await referencePassages[id]()).default;
+  const response = await fetch(`/api/passages/${encodeURIComponent(id)}`);
+  if (!response.ok) throw new Error('The passage could not be loaded.');
+  return response.json();
+}
 onMounted(async () => {
   try {
-    const response = await fetch('/api/passages/demo');
-    if (!response.ok) throw new Error('The passage could not be loaded.');
-    passage.value = await response.json();
+    passage.value = await loadPassage(passageId);
+    player.load(passage.value.audio?.url);
   } catch (cause) { error.value = cause.message; }
 });
 </script>
@@ -39,24 +53,38 @@ onMounted(async () => {
       </section>
       <div class="article-layout">
         <article aria-label="Passage">
-          <section class="audio-toolbar" aria-label="Passage audio controls">
-            <div class="audio-player">
-              <button disabled class="play" aria-label="Play passage">▶</button>
-              <span class="audio-time">0:00 / --:--</span>
-              <input type="range" disabled value="0" aria-label="Audio position" />
-              <button disabled class="speaker" aria-label="Volume"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM16 8c3 2 3 6 0 8M19 5c5 4 5 10 0 14"/></svg></button>
-            </div>
-            <label class="speed"><span class="sr-only">Playback speed</span><select disabled aria-label="Playback speed"><option>1×</option></select></label>
-          </section>
-          <p class="audio-status">Audio will be available once this passage is generated.</p>
+          <AudioConsole
+            :disabled="audioUnavailable"
+            :playing="player.state.playing"
+            :current-time="player.state.currentTime"
+            :duration="player.state.duration"
+            :volume="player.state.volume"
+            :playback-rate="player.state.playbackRate"
+            @toggle-play="player.toggle"
+            @restart="player.restart"
+            @seek="player.seek"
+            @volume-change="player.setVolume"
+            @speed-change="player.setPlaybackRate"
+          />
+          <p class="audio-status">
+            <span role="status">
+              <template v-if="player.state.status === 'empty'">Audio will be available once this passage is generated.</template>
+              <template v-else-if="player.state.status === 'error' || player.state.error">{{ player.state.error }}</template>
+              <template v-else-if="player.state.status === 'loading'">Loading audio…</template>
+              <template v-else-if="isReference">Existing ReadWorks recording. Word highlighting arrives with generated timings.</template>
+            </span>
+            <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
+          </p>
           <div class="passage"><p v-for="paragraph in passage.paragraphs" :key="paragraph.id">{{ paragraph.text }}</p></div>
-          <p class="passage-credit">Original demonstration passage · SoundWorks</p>
+          <p class="passage-credit">{{ isReference ? 'Passage text and recording from ReadWorks · used to test playback' : 'Original demonstration passage · SoundWorks' }}</p>
         </article>
         <aside class="details" aria-labelledby="details-title">
           <h2 id="details-title">DETAILS</h2>
           <ul><li>Words: {{ wordCount }}</li><li>Language: English</li><li>Fiction</li></ul>
-          <h3>Audio</h3><p>Polly Neural</p><p class="muted">Not generated yet</p>
-          <h3>About this passage</h3><p>Original sample text for the SoundWorks reader preview.</p>
+          <h3>Audio</h3>
+          <template v-if="isReference"><p>Existing ReadWorks recording</p><p class="muted">Reference audio for testing the player</p></template>
+          <template v-else><p>Polly Neural</p><p class="muted">Not generated yet</p></template>
+          <h3>About this passage</h3><p>{{ isReference ? 'A public ReadWorks passage used to test playback before generated audio is ready.' : 'Original sample text for the SoundWorks reader preview.' }}</p>
         </aside>
       </div>
     </main>
