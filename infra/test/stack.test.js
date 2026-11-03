@@ -27,3 +27,13 @@ test('only read-only passage API is public; generation is private', () => {
   assert.equal(ofType('AWS::Lambda::Url').length, 0);
   assert.ok(ofType('AWS::Lambda::Function').some(r => r.Properties.Runtime === 'python3.14'));
 });
+test('source JSON updates trigger generation, excluding generated output', () => {
+  const notification = ofType('Custom::S3BucketNotifications')[0];
+  assert.ok(notification);
+  const config = notification.Properties.NotificationConfiguration.LambdaFunctionConfigurations;
+  assert.equal(config.length, 1);
+  assert.deepEqual(config[0].Events, ['s3:ObjectCreated:*']);
+  assert.deepEqual(config[0].Filter.Key.FilterRules.toSorted((a, b) => a.Name.localeCompare(b.Name)), [
+    { Name: 'prefix', Value: 'passages/' }, { Name: 'suffix', Value: '.json' },
+  ]);
+});

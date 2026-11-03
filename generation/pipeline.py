@@ -99,8 +99,8 @@ def fingerprint(passage, voice):
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-def read_stream(response):
-    with closing(response['AudioStream']) as stream:
+def read_stream(response, key='AudioStream'):
+    with closing(response[key]) as stream:
         return stream.read()
 
 
@@ -174,6 +174,85 @@ def generate(passage, output_root, polly, voice='Stephen', force=False):
 def publish(manifest, directory, s3, bucket):
     prefix = f"generated/{manifest['id']}/{manifest['assetVersion']}"
     for filename, content_type in [('audio.wav', 'audio/wav'), ('timings.json', 'application/json'), ('speech-marks.json', 'application/json'), ('manifest.json', 'application/json')]:
-        s3.upload_file(str(Path(directory) / filename), bucket, f'{prefix}/{filename}',
-                       ExtraArgs={'ContentType': content_type, 'CacheControl': 'public,max-age=31536000,immutable'})
+        path = Path(directory) / filename
+        s3.upload_file(str(path), bucket, f'{prefix}/{filename}',
+                       ExtraArgs={'ContentType': content_type, 'CacheControl': 'public,max-age=31536000,immutable',
+                                  'Metadata': {'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}})
+    # This mutable completion index is written only after all immutable assets succeed.
+    s3.put_object(Bucket=bucket, Key=cache_key(manifest, manifest['generation']['voice']),
+                  Body=json.dumps(manifest, ensure_ascii=False).encode(), ContentType='application/json',
+                  CacheControl='no-store')
     return f'/{prefix}/manifest.json'
+
+
+def publish_current(manifest, manifest_url, s3, bucket):
+    """Point the passage's permanent address at this version so the reader can find it."""
+    s3.put_object(Bucket=bucket, Key=f"generated/{manifest['id']}/current.json",
+                  Body=json.dumps({'manifestUrl': manifest_url, 'assetVersion': manifest['assetVersion']}).encode(),
+                  ContentType='application/json', CacheControl='public,max-age=60')
+
+
+def cache_key(passage, voice):
+    return f"generated/{passage['id']}/cache/{fingerprint(passage, voice)}.json"
+
+
+def _missing_object(error):
+    return getattr(error, 'response', {}).get('Error', {}).get('Code') in ('NoSuchKey', 'NotFound', '404')
+
+
+def _get_json(s3, bucket, key):
+    response = s3.get_object(Bucket=bucket, Key=key)
+    return json.loads(read_stream(response, 'Body'))
+
+
+def cached_manifest(passage, voice, s3, bucket):
+    """Reuse only a complete, matching published recording; permission failures propagate."""
+    try:
+        manifest = _get_json(s3, bucket, cache_key(passage, voice))
+        digest = fingerprint(passage, voice)
+        if (fingerprint(manifest, voice) != digest or manifest['generation']['textHash'] != digest
+                or manifest['generation']['status'] != 'ready'
+                or manifest['generation']['voice'] != voice or manifest['generation']['engine'] != 'neural'
+                or manifest['audio']['voice'] != voice or manifest['audio']['engine'] != 'neural'):
+            return None
+        version = manifest['assetVersion']
+        if not re.fullmatch(r'[a-f0-9]{20}-[a-f0-9]{12}', version):
+            return None
+        prefix = f"generated/{passage['id']}/{version}"
+        if manifest['audio']['url'] != f'/{prefix}/audio.wav' or manifest['timingsUrl'] != f'/{prefix}/timings.json':
+            return None
+        if not manifest['tokens'] or len(manifest['tokens']) != len(manifest['timings']):
+            return None
+        audio = s3.head_object(Bucket=bucket, Key=f'{prefix}/audio.wav')
+        if audio['ContentLength'] <= 44 or audio.get('Metadata', {}).get('sha256') != manifest['audio']['sha256']:
+            return None
+        if _get_json(s3, bucket, f'{prefix}/timings.json') != manifest['timings']:
+            return None
+        if s3.head_object(Bucket=bucket, Key=f'{prefix}/speech-marks.json')['ContentLength'] <= 0:
+            return None
+        return manifest
+    except (KeyError, TypeError, ValueError, UnicodeError):
+        return None
+    except Exception as error:
+        if _missing_object(error):
+            return None
+        raise
+
+
+def prepare(passage, output_root, polly, s3=None, bucket=None, voice='Stephen', force=False):
+    """Check shared S3 cache before local generation or any synthesis requests."""
+    validate_passage(passage)
+    if bucket and not force:
+        manifest = cached_manifest(passage, voice, s3, bucket)
+        if manifest is not None:
+            url = manifest['audio']['url'].rsplit('/', 1)[0] + '/manifest.json'
+            publish_current(manifest, url, s3, bucket)
+            return {'manifest': manifest, 'directory': None, 'cached': True, 'cacheSource': 's3',
+                    'manifestUrl': url, 'synthesisRequestCharacters': 0}
+    manifest, directory, cached = generate(passage, output_root, polly, voice=voice, force=force)
+    url = publish(manifest, directory, s3, bucket) if bucket else None
+    if bucket:
+        publish_current(manifest, url, s3, bucket)
+    return {'manifest': manifest, 'directory': directory, 'cached': cached,
+            'cacheSource': 'local' if cached else None, 'manifestUrl': url,
+            'synthesisRequestCharacters': 0 if cached else manifest['generation']['requestCharacters']}

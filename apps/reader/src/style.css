@@ -25,7 +25,9 @@ svg.filled { fill: currentColor; }
 .article-tabs .active { border-bottom-color: var(--teal); color: var(--teal); font-weight: 700; }
 .article-tabs button:disabled { color: #707c84; }
 .article-layout { max-width: 1170px; margin: 0 auto; padding: 26px 24px 64px; display: grid; grid-template-columns: minmax(0, 1fr) 255px; gap: 54px; min-height: 470px; }
-.audio-toolbar { width: 100%; }
+.audio-toolbar { width: 100%; position: sticky; top: 0; z-index: 5; background: white; padding: 8px 0; }
+.follow-return { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; background: var(--teal); color: white; padding: 10px 20px; min-height: 44px; font-size: 15px; white-space: nowrap; box-shadow: 0 4px 14px rgb(0 0 0 / 0.2); }
+.follow-return:hover { background: #235b6e; }
 .audio-player { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #f1f3f4; border-radius: 28px; padding: 8px 14px; min-height: 52px; width: 100%; }
 .audio-player .control-button { border: none; padding: 0; display: grid; place-items: center; background: none; color: #345d6b; flex: 0 0 28px; min-height: 32px; }
 .audio-player .control-button:disabled { color: #68737a; }
@@ -59,4 +61,4 @@ footer span { margin-left: 18px; }
 .projector .passage { font-size: 28px; }
 @media (max-width: 950px) { .audio-player { border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } }
 @media (max-width: 760px) { .site-header { padding: 18px 17px; } .brand { font-size: 27px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .audio-player { flex-wrap: wrap; border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } }
-@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer { display: none; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }
+@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .follow-return { display: none; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }
