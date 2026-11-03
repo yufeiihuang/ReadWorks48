@@ -43,17 +43,16 @@ source generation/.venv/bin/activate
 pip install -r generation/requirements.txt
 ```
 
-The generation entry point currently validates required input fields only. Polly calls and Lambda packaging are follow-up work. No AWS credentials are needed for local development. Never put credentials in frontend files or commit them.
+The generation entry point currently validates required input fields only. Polly calls are follow-up work; the CDK stack packages the generation Lambda scaffold. No AWS credentials are needed for local development. Never put credentials in frontend files or commit them.
 
 ## Infrastructure
 
-The initial stack defines a private encrypted, versioned S3 asset bucket in `us-west-2`, retained on stack deletion. Reader hosting, API deployment, and generation Lambda are not implemented yet.
-
-With sandbox credentials configured, review changes before deploying:
+See [sandbox deployment guide](docs/deployment.md). CDK defines HTTPS CloudFront hosting, private encrypted/versioned S3 buckets, an Express Lambda/API Gateway, and an IAM-only Python generation Lambda foundation. All browser requests use the same origin; no permissive CORS policy is needed.
 
 ```sh
+npm run test -w @soundworks/infra
 npm run diff -w @soundworks/infra
-npm run deploy -w @soundworks/infra
+npm run deploy -w @soundworks/infra -- --outputs-file cdk.out/outputs.json
 ```
 
-Deployment may require bootstrapping the AWS sandbox first. No resources have been deployed by this scaffold.
+The generation Lambda intentionally returns `not_implemented` until SW-02/SW-08. No generation endpoint is public. Deployment requires temporary sandbox credentials and may require CDK bootstrapping. Buckets are retained when the stack is deleted; see the cleanup instructions.

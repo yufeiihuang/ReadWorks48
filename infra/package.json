@@ -5,13 +5,19 @@
   "scripts": {
     "synth": "cdk synth",
     "diff": "cdk diff",
-    "deploy": "cdk deploy"
+    "deploy": "cdk deploy",
+    "predeploy": "npm run build -w @soundworks/reader",
+    "presynth": "npm run build -w @soundworks/reader",
+    "prediff": "npm run build -w @soundworks/reader",
+    "test": "npm run synth -- --quiet && node --test test/*.test.js",
+    "bootstrap": "cdk bootstrap"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.275.0",
     "constructs": "^10.4.2"
   },
   "devDependencies": {
-    "aws-cdk": "^2.1000.0"
+    "aws-cdk": "^2.1000.0",
+    "esbuild": "^0.28.2"
   }
 }

@@ -20,4 +20,4 @@ Audio currentTime is the synchronization source of truth. All controls operate o
 
 ## Follow-up implementation
 
-The scaffold has no audio playback or generated timing yet. Implement Lambda invocation, Polly calls, chunk handling, validation, asset publishing, ReadWorks JSON adaptation, production asset delivery, and frontend hosting in the corresponding tickets. The initial CDK stack creates only a private, versioned asset bucket; it does not deploy the reader or API.
+The scaffold has no audio playback or generated timing yet. Implement Polly calls, chunk handling, validation, asset publishing, ReadWorks JSON adaptation, and the builder generation command in the corresponding tickets. The CDK stack now deploys private website/asset buckets, CloudFront with origin access control, an Express Lambda behind a read-only HTTP API, and an IAM-only Python generation stub. The public reader and its API/assets share one HTTPS origin.
