@@ -1,0 +1,17 @@
+{
+  "name": "soundworks",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "infra"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,reader \"npm run dev -w @soundworks/api\" \"npm run dev -w @soundworks/reader\"",
+    "build": "npm run build -w @soundworks/reader",
+    "check": "npm run check -w @soundworks/api && npm run synth -w @soundworks/infra"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

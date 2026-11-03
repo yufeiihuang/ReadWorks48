@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "demo",
+  "revision": 1,
+  "title": "A Morning in the Garden",
+  "language": "en-US",
+  "assetVersion": "demo-v1",
+  "paragraphs": [
+    {
+      "id": "p1",
+      "text": "Maya walked into the community garden just after sunrise. A small bird rested on the fence, watching her carry a blue watering can."
+    },
+    {
+      "id": "p2",
+      "text": "“Brrr! It is chilly today,” she said. Then the sun appeared above the trees, and the garden began to warm. Maya smiled and watered the seedlings."
+    }
+  ],
+  "tokens": [],
+  "audio": null,
+  "timings": [],
+  "generation": {
+    "status": "not_generated",
+    "engine": "neural",
+    "voice": null,
+    "textHash": null
+  }
+}

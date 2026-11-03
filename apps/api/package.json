@@ -1,0 +1,13 @@
+{
+  "name": "@soundworks/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}
