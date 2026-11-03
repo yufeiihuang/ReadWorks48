@@ -4,6 +4,7 @@ import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
 import { findActiveToken } from './lib/wordTiming.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
+import { useFollowAlong } from './composables/useFollowAlong.js';
 // Playback test passage with ReadWorks' existing recording; open /?passage=pride-and-prejudice.
 // Loaded in the reader until the API passage routes (SW-10) serve more than the demo fixture.
 const referencePassages = { 'pride-and-prejudice': () => import('../../../shared/fixtures/pride-and-prejudice.json') };
@@ -27,11 +28,16 @@ function dismissWordSelection(event) {
   highlightDismissed.value = true;
   document.activeElement?.closest('.read-along-text button')?.blur();
 }
+// Space under the sticky console; capped so a tall console on small screens can't hide the band.
+const consoleInset = () => Math.min(Math.max(0, document.querySelector('.audio-toolbar')?.getBoundingClientRect().bottom ?? 0), window.innerHeight * 0.4);
+const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(activeTokenId, () => player.state.playing, { topInset: consoleInset });
 function replayWord(tokenId) {
   highlightDismissed.value = false;
   const timing = passage.value?.timings?.find(item => item.tokenId === tokenId);
-  if (timing && !audioUnavailable.value) player.playFrom(timing.startMs / 1000);
+  if (timing && !audioUnavailable.value) { resumeFollowing(); player.playFrom(timing.startMs / 1000); }
 }
+function restartPassage() { resumeFollowing(); player.restart(); }
+function seekPassage(seconds) { resumeFollowing(); player.seek(seconds); }
 const isReference = computed(() => passage.value?.generation?.status === 'reference');
 const reload = () => window.location.reload();
 const printPassage = () => window.print();
@@ -92,8 +98,8 @@ onMounted(async () => {
             :volume="player.state.volume"
             :playback-rate="player.state.playbackRate"
             @toggle-play="player.toggle"
-            @restart="player.restart"
-            @seek="player.seek"
+            @restart="restartPassage"
+            @seek="seekPassage"
             @volume-change="player.setVolume"
             @speed-change="player.setPlaybackRate"
           />
@@ -120,6 +126,10 @@ onMounted(async () => {
           <h3>About this passage</h3><p>{{ isReference ? 'A public ReadWorks passage used to test playback before generated audio is ready.' : 'Original sample text for the SoundWorks reader preview.' }}</p>
         </aside>
       </div>
+      <button v-if="!following && activeTokenId && wordPlacement !== 'visible'" type="button" class="follow-return" @click="resumeFollowing">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="wordPlacement === 'above'" d="M12 19V5M6 11l6-6 6 6"/><path v-else d="M12 5v14M6 13l6 6 6-6"/></svg>
+        Back to where we're reading
+      </button>
     </main>
     <footer>ReadWorks SoundWorks <span>Hackathon reader preview</span></footer>
   </div>
