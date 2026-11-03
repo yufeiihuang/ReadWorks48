@@ -22,6 +22,19 @@ python generation/generate.py shared/fixtures/demo.json --bucket YOUR_PASSAGE_AS
 
 Only approved/public passage text should be published. Files appear at `/generated/PASSAGE_ID/ASSET_VERSION/` on the reader's CloudFront domain. S3 uploads audio and timing files first and the manifest last. This command does not switch the Express API's fixture or implement frontend playback; those belong to builders A and D.
 
+## Generate from ReadWorks JSON
+
+Pass a ReadWorks UUID, product JSON URL, or saved product JSON file. A UUID downloads the public QA product JSON and needs no other setup:
+
+```sh
+python generation/generate.py 2b781dab-4521-40d2-a9b6-ad5f2bb0ba98 --validate-only
+python generation/generate.py 2b781dab-4521-40d2-a9b6-ad5f2bb0ba98 --bucket YOUR_PASSAGE_ASSETS_BUCKET
+```
+
+`generation/readworks.py` uses `uuid` as the passage id, maps `lang` `EN` to `en-US`, and splits `text` on line breaks into paragraphs. `revision` is always 1 because the input hash already detects text changes. Ebook-style passages, other languages, and passages whose `content` shows words that `text` lacks (other than figures and captions) stop with an error. The reader displays paragraph text only, so images and vocabulary markup from `content` aren't shown yet.
+
+Publishing also writes `generated/PASSAGE_ID/current.json`, including on a cache hit, which names the newest manifest. Open a generated passage at `/?passage=PASSAGE_ID`. The pointer is cached for 60 seconds, so a new version can take about a minute to appear. Versioned files never change.
+
 ## Output contract for the reader
 
 - `manifest.json`: original paragraphs, unique word tokens, audio URL, timings, generation metadata.
@@ -85,7 +98,7 @@ The cache reuses only a matching ready manifest with audio metadata and complete
 
 ## Automatic regeneration after S3 edits
 
-Upload our normalized passage JSON to the private passage bucket at **`passages/PASSAGE_ID.json`**. The filename must match the JSON `id`. Use `shared/fixtures/demo.json` as the input format: `id`, positive integer `revision`, `title`, `language`, and `paragraphs` containing unique `id` and `text` fields. Raw ReadWorks CMS JSON still requires the planned source adapter.
+Upload our normalized passage JSON to the private passage bucket at **`passages/PASSAGE_ID.json`**. The filename must match the JSON `id`. Use `shared/fixtures/demo.json` as the input format: `id`, positive integer `revision`, `title`, `language`, and `paragraphs` containing unique `id` and `text` fields. To use this route for ReadWorks JSON, convert it first; the CLI command above converts and publishes directly.
 
 ```sh
 aws s3 cp shared/fixtures/demo.json s3://YOUR_PASSAGE_ASSETS_BUCKET/passages/demo.json
@@ -95,7 +108,7 @@ Overwriting that key triggers the generation Lambda automatically. A changed pas
 
 S3 notifications filter on `passages/` plus `.json`, while generated assets live under `generated/`, preventing a recursive generation loop. The handler reads the current object even if the notification refers to an older version. Every completed event writes its result (including source version, cache-hit flag, and output manifest URL) to `generated/PASSAGE_ID/events/PASSAGE_ID-INPUT_HASH.json` and logs it in CloudWatch. Invalid input fails the invocation and follows AWS's normal asynchronous retry behavior.
 
-Generation is automatic, but the current sample reader remains pinned to its approved demo manifest. Automatically switching the reader to newly edited CMS content is a separate source-discovery/integration step. Existing open recordings keep their matching text/timings rather than silently changing underneath playback.
+Generation is automatic. Other passages load through `current.json`, while the `demo` passage remains pinned to its approved manifest. Existing open recordings keep their matching text/timings rather than silently changing underneath playback.
 
 ## Clear a selected word
 

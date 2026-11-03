@@ -4,11 +4,12 @@ import json
 import sys
 from pathlib import Path
 from pipeline import prepare, validate_passage
+from readworks import load_passage
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('passage', type=Path)
+    parser.add_argument('passage', help='Passage JSON file, ReadWorks product JSON URL, or ReadWorks UUID')
     parser.add_argument('--validate-only', action='store_true')
     parser.add_argument('--output', type=Path, default=Path(__file__).parent / 'output')
     parser.add_argument('--voice', default='Stephen')
@@ -18,10 +19,10 @@ def main():
     parser.add_argument('--force', action='store_true', help='Bypass both the S3 and local caches')
     args = parser.parse_args()
     try:
-        passage = json.loads(args.passage.read_text())
+        passage = load_passage(args.passage)
         validate_passage(passage)
         if args.validate_only:
-            print(f"Valid generation input: {passage['id']}")
+            print(f"Valid generation input: {passage['id']} ({len(passage['paragraphs'])} paragraphs)")
             return
         import boto3
         from botocore.config import Config
