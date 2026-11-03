@@ -21,3 +21,7 @@ Audio currentTime is the synchronization source of truth. All controls operate o
 ## Follow-up implementation
 
 Stephen Neural generation, chunk handling, timing conversion, validation, local caching, S3 publishing, and the builder command are implemented; see generation.md. ReadWorks JSON conversion and reader playback are implemented; see generation.md. The CDK stack now deploys private website/asset buckets, CloudFront with origin access control, an Express Lambda behind a read-only HTTP API, and an IAM-only Python generation function. The public reader and its API/assets share one HTTPS origin.
+
+## Reader audio labels
+
+Keep narration type, provider, model, voice names, and generation infrastructure out of the student-facing UI. Retain those fields internally for processing and caching. Reader messages describe available actions, loading/errors, and incomplete highlighting without identifying whether a recording is human or synthesized.
