@@ -35,6 +35,12 @@ For a named profile, pass it after npm's `--`, for example `npm run diff -w @sou
 
 The scripts rebuild Vue before synthesis, diff, and deployment. The root lockfile is used to bundle Express and its dependencies. CDK prints ReaderUrl, ApiUrl, bucket names, and GenerationFunctionName. Bootstrap only initializes the sandbox's CDK tooling; leave organizer-managed guardrails untouched.
 
+## Team access
+
+GitHub access and AWS deployment access are separate. Teammates can develop locally with no AWS credentials. To update the shared environment, they need their own authorized access to the same workshop AWS account and region. Ask the workshop facilitator to confirm team account assignment and arrange access; joining the same event does not by itself prove that everyone received the same account.
+
+Do not share a personal AWS login or another builder's temporary credentials. If workshop team access is not available, designate one deployer: teammates push reviewed changes to GitHub, and that person deploys the shared stack. If this environment is later moved into a team-owned AWS account, use individual federated access through IAM Identity Center or an approved deployment role.
+
 ## Deploy future changes
 
 Develop and check changes locally, then refresh sandbox credentials and deploy from the repo root:
