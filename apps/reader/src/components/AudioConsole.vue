@@ -151,18 +151,23 @@ function formatTime(seconds) {
   transition: opacity 0.12s ease;
 }
 
-/* Reveal on hover or keyboard focus. :focus-within covers the volume/speed
-   labels whose focusable control is a child input/select. */
+/* Reveal on hover or *keyboard* focus only.
+   - Buttons use :focus-visible on themselves.
+   - The volume/speed labels aren't focusable; their focus comes from a child
+     input/select, so they use :has(:focus-visible). Using :focus-visible (not
+     :focus-within) is deliberate: a mouse click focuses the control but does
+     not match :focus-visible, so the tooltip does not stick after clicking and
+     then moving the mouse away. Keyboard (Tab) focus still shows it. */
 .has-tooltip:hover::after,
 .has-tooltip:focus-visible::after,
-.has-tooltip:focus-within::after {
+.has-tooltip:has(:focus-visible)::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
 
 .has-tooltip:hover::before,
 .has-tooltip:focus-visible::before,
-.has-tooltip:focus-within::before {
+.has-tooltip:has(:focus-visible)::before {
   opacity: 1;
 }
 
