@@ -21,12 +21,6 @@ h1 { margin: 0 0 14px; font-size: 29.75px; font-weight: 600; line-height: 1.25; 
 .article-actions button:disabled { background: #647f89; }
 .article-actions button:hover:not(:disabled), .article-actions button[aria-pressed=true] { background: #235b6e; }
 .icon-button { width: 58px; display: grid; place-items: center; }
-.focus-switch { display: inline-flex; align-items: center; gap: 9px; }
-.switch-track { position: relative; width: 30px; height: 18px; border-radius: 9px; background: rgb(255 255 255 / .35); transition: background .2s; }
-.switch-knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: white; transition: transform .2s; }
-.focus-switch[aria-checked=true] { background: #235b6e; }
-.focus-switch[aria-checked=true] .switch-track { background: #9fd3c7; }
-.focus-switch[aria-checked=true] .switch-knob { transform: translateX(12px); }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 svg.filled { fill: currentColor; }
 .article-tabs { display: flex; align-items: stretch; gap: 16px; overflow-x: auto; }
@@ -104,7 +98,7 @@ footer span { margin-left: 18px; }
 /* Color Focus: one calm column, no sidebar, left-aligned text with more room between lines and words. */
 .color-focus .details { display: none; }
 .color-focus .article-layout { grid-template-columns: minmax(0, 1fr); max-width: 880px; }
-.color-focus .passage-frame { border-radius: 16px; padding: 24px 30px; transition: background-color .3s; }
+.color-focus .passage-frame { border-radius: 10px; padding: 24px 30px; transition: background-color .3s; }
 .color-focus .passage { max-width: 68ch; text-align: left; font-size: calc(19px * var(--reading-scale, 1)); line-height: 2; word-spacing: .12em; letter-spacing: .01em; }
 .color-focus .passage p { margin-bottom: 1.4em; }
 .color-focus .passage p:last-child { margin-bottom: 0; }

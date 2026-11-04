@@ -210,7 +210,6 @@ onMounted(async () => {
           <div class="article-actions" aria-label="Passage actions">
             <button disabled title="Assignments are not available in this preview">Assign</button>
             <button @click="printPassage">Print</button>
-            <button type="button" class="focus-switch" role="switch" :aria-checked="focus.on" @click="focus.on = !focus.on"><span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>Color Focus</button>
             <button class="icon-button" :aria-pressed="projector" :aria-label="projector ? 'Exit projector view' : 'Enter whiteboard or projector view'" @click="projector = !projector"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="1"/><path d="M9 20h6M12 16v4"/></svg></button>
             <button class="icon-button" :aria-pressed="saved" :aria-label="saved ? 'Remove bookmark' : 'Bookmark passage for this session'" @click="saved = !saved"><svg viewBox="0 0 24 24" aria-hidden="true" :class="{ filled: saved }"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
           </div>
@@ -269,8 +268,8 @@ onMounted(async () => {
                 <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
               </label>
             </ReadingAppearance>
+            <ColorFocusPanel :settings="focus" :part-count="focusParts.length" :current-part="currentPart" :has-timings="canSelectWords" />
           </div>
-          <ColorFocusPanel v-if="focus.on" :settings="focus" :part-count="focusParts.length" :current-part="currentPart" :has-timings="canSelectWords" />
           <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
             <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
           </div>
