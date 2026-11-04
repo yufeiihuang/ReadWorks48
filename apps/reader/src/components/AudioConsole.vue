@@ -8,11 +8,13 @@ const props = defineProps({
   duration: { type: Number, default: 0 },
   volume: { type: Number, default: 1 },
   playbackRate: { type: Number, default: 1 },
+  highlightEnabled: { type: Boolean, default: true },
+  canHighlight: { type: Boolean, default: false },
   // Sentence replay needs word timings; hidden/disabled when unavailable.
   canReplaySentence: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['toggle-play', 'restart', 'replay-sentence', 'seek', 'volume-change', 'speed-change']);
+const emit = defineEmits(['toggle-play', 'restart', 'replay-sentence', 'seek', 'volume-change', 'speed-change', 'toggle-highlighting']);
 const safeDuration = computed(() => Number.isFinite(props.duration) ? Math.max(0, props.duration) : 0);
 const safeCurrentTime = computed(() => Number.isFinite(props.currentTime)
   ? Math.min(Math.max(0, props.currentTime), safeDuration.value)
@@ -102,11 +104,30 @@ function formatTime(seconds) {
           <option :value="2">2×</option>
         </select>
       </label>
+      <button
+        v-if="canHighlight"
+        class="highlight-toggle"
+        type="button"
+        :aria-pressed="highlightEnabled"
+        @click="emit('toggle-highlighting')"
+      >Highlight {{ highlightEnabled ? 'on' : 'off' }}</button>
     </div>
   </section>
 </template>
 
 <style scoped>
+.highlight-toggle {
+  border: 1px solid #bacbd1;
+  border-radius: 16px;
+  padding: 6px 12px;
+  background: white;
+  color: #345d6b;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.highlight-toggle[aria-pressed="true"] { background: #e0edf1; border-color: #347b91; }
+.highlight-toggle:hover { background: #d5e6ec; }
+
 /* Hover/focus tooltips for the audio controls. Driven by data-tooltip so the
    same label is announced visually; aria-label still carries it to screen
    readers. Shown on hover and on keyboard focus, and suppressed when the
