@@ -33,7 +33,7 @@ const sizes = [0.75, 1, 1.25, 1.5, 1.75, 2];
 .text-size { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; color: #52616a; border: 0; padding: 0; margin: 0; min-width: 0; }
 .size-label { white-space: nowrap; }
 .size-options { display: flex; align-items: stretch; gap: 3px; }
-.size-option { position: relative; display: flex; align-items: center; justify-content: center; min-width: 38px; height: 48px; padding: 0 5px; border-radius: 5px; color: #345d6b; cursor: pointer; }
+.size-option { position: relative; display: flex; align-items: flex-end; justify-content: center; min-width: 38px; height: 48px; padding: 0 5px 7px; border-radius: 5px; color: #345d6b; cursor: pointer; }
 .size-option span { line-height: 1; }
 .size-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .size-option:hover { background: #e8eff2; }
