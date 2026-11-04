@@ -33,14 +33,16 @@ const sizes = [0.75, 1, 1.25, 1.5, 1.75, 2];
 .text-size { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; color: #52616a; border: 0; padding: 0; margin: 0; min-width: 0; }
 .size-label { white-space: nowrap; }
 .size-options { display: flex; align-items: stretch; gap: 0; }
-.size-option { position: relative; display: block; text-align: center; width: 44px; flex: 0 0 44px; height: 48px; padding: 0; line-height: 0; border-radius: 5px; color: #345d6b; cursor: pointer; }
+.size-option { position: relative; display: block; text-align: center; flex: 0 0 auto; height: 48px; padding: 0 10px; line-height: 0; border-radius: 5px; color: #345d6b; cursor: pointer; }
 .size-option::before { content: ''; display: inline-block; height: 35px; vertical-align: baseline; }
-.size-option span { line-height: 1; vertical-align: baseline; }
+.size-option span { position: relative; z-index: 1; line-height: 1; vertical-align: baseline; pointer-events: none; }
+.size-option::after { content: ''; position: absolute; width: 44px; height: 48px; top: 0; left: 50%; transform: translateX(-50%); border-radius: 5px; pointer-events: none; }
 .size-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.size-option:hover { background: #e8eff2; }
-.size-option.selected { background: #347b91; color: white; }
+.size-option:hover::after { background: #e8eff2; }
+.size-option.selected { color: white; }
+.size-option.selected::after { background: #347b91; }
 .size-option:has(input:focus-visible) { outline: 3px solid #db9d22; outline-offset: 2px; }
-@media (max-width: 420px) { .size-options { gap: 1px; } .size-option { width: 38px; flex-basis: 38px; padding-inline: 0; } }
+@media (max-width: 420px) { .size-options { gap: 1px; } .size-option { padding-inline: 7px; } }
 .font-control { margin-left: 0; }
 @media print { .reading-appearance { display: none; } }
 </style>
