@@ -164,15 +164,14 @@ onMounted(async () => {
             @volume-change="player.setVolume"
             @speed-change="player.setPlaybackRate"
           />
-          <p class="audio-status">
+          <p v-if="generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings" class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
               <template v-else-if="player.state.status === 'empty'">Audio isn't ready for this passage yet. You can still read it.</template>
               <template v-else-if="player.state.status === 'error' || player.state.error">{{ player.state.error }}</template>
               <template v-else-if="player.state.status === 'loading'">Loading audio…</template>
               <template v-else-if="player.state.buffering">Buffering audio…</template>
-              <template v-else-if="hasIncompleteTimings">Select a word to hear it again. Some words are not available for highlighting.</template>
-              <template v-else-if="hasTimings">Select any word to hear it again.</template>
+              <template v-else-if="hasIncompleteTimings">Some words are not available for highlighting.</template>
               <template v-else>Press play to listen. Word highlighting is not available for this passage.</template>
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
