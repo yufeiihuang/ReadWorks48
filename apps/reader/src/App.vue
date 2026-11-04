@@ -177,20 +177,23 @@ onMounted(async () => {
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
-          <div v-if="canSelectWords || hasTimings" class="reading-options" aria-label="Reading options">
-            <fieldset v-if="canSelectWords" class="word-action">
-              <legend>Tap a word to</legend>
-              <label :class="{ selected: wordAction === 'read' }"><input v-model="wordAction" type="radio" name="word-action" value="read">Read from there</label>
-              <label :class="{ selected: wordAction === 'say' }"><input v-model="wordAction" type="radio" name="word-action" value="say">Hear just that word</label>
-            </fieldset>
-            <label v-if="hasTimings" class="highlight-control">
-              <span>Highlight</span>
-              <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
-              <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
-              <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+          <div class="reading-settings" aria-label="Reading settings" role="group">
+            <label v-if="canSelectWords" class="word-action">
+              <span>Tap a word to</span>
+              <select v-model="wordAction" aria-label="Tap a word to">
+                <option value="read">Read from there</option>
+                <option value="say">Hear just that word</option>
+              </select>
             </label>
+            <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont">
+              <label v-if="hasTimings" class="highlight-control">
+                <span>Highlight</span>
+                <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
+                <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
+                <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+              </label>
+            </ReadingAppearance>
           </div>
-          <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" />
           <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" @replay="selectWord" />
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
