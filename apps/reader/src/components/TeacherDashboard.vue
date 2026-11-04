@@ -45,7 +45,6 @@ const title = id => passages.find(p => p.id === id)?.title || id;
   <header class="site-header"><a class="brand" href="/">Read<span>Works</span><sup>®</sup></a><nav class="teacher-nav"><span>Teacher dashboard</span><a href="/">Open reader ↗</a></nav></header>
   <main class="teacher-page">
     <section class="teacher-intro"><h1>Assignments</h1></section>
-    <p class="demo-notice">Demo: assignments save on this device. Send students the reading link.</p>
     <div class="teacher-grid">
       <form class="teacher-card assignment-form" @submit.prevent="assign">
         <h2>Create an assignment</h2>
