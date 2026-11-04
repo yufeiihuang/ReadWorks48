@@ -17,6 +17,9 @@ def main():
     parser.add_argument('--profile')
     parser.add_argument('--bucket', help='Optional S3 destination; manifest is uploaded last')
     parser.add_argument('--force', action='store_true', help='Bypass both the S3 and local caches')
+    parser.add_argument('--pronunciation', action='store_true',
+                        help='Experimental: use Amazon Bedrock to correct onomatopoeia pronunciation (off by default)')
+    parser.add_argument('--bedrock-model', help='Bedrock model id for pronunciation detection')
     args = parser.parse_args()
     try:
         passage = load_passage(args.passage)
@@ -28,8 +31,14 @@ def main():
         from botocore.config import Config
         session = boto3.Session(profile_name=args.profile, region_name=args.region)
         polly = session.client('polly', config=Config(retries={'mode': 'standard', 'max_attempts': 4}))
+        detect = None
+        if args.pronunciation:
+            from pronunciation import make_detector, DEFAULT_MODEL_ID
+            bedrock = session.client('bedrock-runtime', config=Config(retries={'mode': 'standard', 'max_attempts': 3}))
+            detect = make_detector(bedrock, model_id=args.bedrock_model or DEFAULT_MODEL_ID, enabled=True)
         prepared = prepare(passage, args.output, polly, s3=session.client('s3') if args.bucket else None,
-                           bucket=args.bucket, voice=args.voice, force=args.force)
+                           bucket=args.bucket, voice=args.voice, force=args.force,
+                           detect=detect, pronunciation_enabled=args.pronunciation)
         manifest, directory = prepared['manifest'], prepared['directory']
         result = {'manifest': str(directory / 'manifest.json') if directory else prepared['manifestUrl'],
                   'audio': str(directory / 'audio.wav') if directory else manifest['audio']['url'],
