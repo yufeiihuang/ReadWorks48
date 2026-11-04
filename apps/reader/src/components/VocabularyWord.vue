@@ -4,7 +4,8 @@ defineEmits(['hear', 'toggle']);
 </script>
 <template>
   <div class="vocabulary-word">
-    <h3>{{ entry.word }} <small v-if="entry.lemma && entry.lemma !== entry.word.toLowerCase()">→ {{ entry.lemma }}</small></h3>
+    <h3>{{ entry.word }}</h3>
+    <div v-if="entry.lemma && entry.lemma !== entry.word.toLowerCase()" class="base-word">Base word: {{ entry.lemma }}</div>
     <em>{{ entry.partOfSpeech }}</em>
     <p>{{ entry.definition }}</p>
     <p class="word-sentence">{{ entry.before }}<strong>{{ entry.word }}</strong>{{ entry.after }}</p>
@@ -12,3 +13,7 @@ defineEmits(['hear', 'toggle']);
     <small v-if="entry.source"><a :href="entry.source.url" target="_blank" rel="noopener">Definitions from {{ entry.source.name }} ({{ entry.source.license }})</a></small>
   </div>
 </template>
+
+<style scoped>
+.base-word { margin: 0 0 8px; color: #64747d; font-size: 13px; font-weight: 400; line-height: 1.5; }
+</style>
