@@ -8,7 +8,8 @@ test('follows current.json to the newest manifest', async () => {
   assert.deepEqual(await loadGeneratedPassage('abc', undefined, fetcher), manifest);
 });
 test('uses a pinned manifest without looking for a pointer', async () => {
-  const fetcher = fetcherFor({ '/generated/demo/pin/manifest.json': manifest });
+  const files = fetcherFor({ '/generated/demo/pin/manifest.json': manifest });
+  const fetcher = async url => url.endsWith('/current.json') ? assert.fail('a pinned demo must not consult current.json') : files(url);
   assert.deepEqual(await loadGeneratedPassage('demo', '/generated/demo/pin/manifest.json', fetcher), manifest);
 });
 test('reports an ungenerated passage and rejects unsafe ids without fetching', async () => {
@@ -29,12 +30,38 @@ test('builds word clip URLs only from a well-formed word audio section', () => {
   assert.equal(wordClipUrl({ wordAudio: { ...withClips.wordAudio, clips: { w0: '../x' } } }, 'w0'), null);
 });
 
-test('normal reader prefers a newly published pointer over an old demo pin', async () => {
+const pin = '/generated/abc/old/manifest.json';
+test('latest preview prefers a newly published pointer over the pin, and never edge-caches the pointer', async () => {
   const latest = { ...manifest, assetVersion: 'human-latest' };
-  const fetcher = fetcherFor({ '/generated/abc/current.json': { manifestUrl: '/generated/abc/new/manifest.json' }, '/generated/abc/new/manifest.json': latest, '/generated/abc/old/manifest.json': manifest });
-  assert.deepEqual(await loadLatestGeneratedPassage('abc', '/generated/abc/old/manifest.json', fetcher), latest);
+  const files = fetcherFor({ '/generated/abc/current.json': { manifestUrl: '/generated/abc/new/manifest.json' }, '/generated/abc/new/manifest.json': latest, [pin]: manifest });
+  const pointerOptions = [];
+  const fetcher = async (url, options) => { if (url.endsWith('/current.json')) pointerOptions.push(options); return files(url); };
+  assert.deepEqual(await loadLatestGeneratedPassage('abc', pin, fetcher), latest);
+  assert.equal(pointerOptions[0].cache, 'no-store');
+  assert.ok(pointerOptions[0].signal instanceof AbortSignal);
 });
-test('absent pointer uses the demo fallback, but server failures do not silently serve an old recording', async () => {
-  assert.deepEqual(await loadLatestGeneratedPassage('abc', '/generated/abc/old/manifest.json', fetcherFor({ '/generated/abc/old/manifest.json': manifest })), manifest);
-  await assert.rejects(loadLatestGeneratedPassage('abc', '/generated/abc/old/manifest.json', async () => ({ ok: false, status: 500 })), /pointer unavailable/);
+test('any pointer problem serves the pin instead of dropping the audio', async () => {
+  const withPin = pointer => async url => url === pin ? { ok: true, json: async () => manifest } : pointer(url);
+  const problems = {
+    absent: async () => ({ ok: false, status: 403 }),
+    'server error': async () => ({ ok: false, status: 502 }),
+    'network error': async () => { throw new TypeError('Failed to fetch'); },
+    'non-JSON body': async () => ({ ok: true, json: async () => { throw new SyntaxError('Unexpected token <'); } }),
+    'pointer outside passage': async () => ({ ok: true, json: async () => ({ manifestUrl: 'https://example.com/x.json' }) }),
+    'missing manifest': async url => url.endsWith('/current.json') ? { ok: true, json: async () => ({ manifestUrl: '/generated/abc/gone/manifest.json' }) } : { ok: false, status: 403 },
+  };
+  for (const [problem, pointer] of Object.entries(problems)) {
+    assert.deepEqual(await loadLatestGeneratedPassage('abc', pin, withPin(pointer)), manifest, problem);
+  }
+});
+test('a hung pointer times out: the pin is served, and without a pin the reader is told', async () => {
+  let aborted = false;
+  const hang = async (url, options) => url === pin ? { ok: true, json: async () => manifest }
+    : new Promise(() => options.signal.addEventListener('abort', () => { aborted = true; }));
+  assert.deepEqual(await loadLatestGeneratedPassage('abc', pin, hang, 20), manifest);
+  assert.ok(aborted, 'the stalled pointer request is aborted');
+  await assert.rejects(loadLatestGeneratedPassage('abc', undefined, hang, 20), /timed out/);
+});
+test('without a pin, server failures still surface instead of reading as ungenerated', async () => {
+  await assert.rejects(loadLatestGeneratedPassage('abc', undefined, async () => ({ ok: false, status: 500 })), /pointer unavailable/);
 });

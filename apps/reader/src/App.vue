@@ -14,6 +14,8 @@ import { useColorFocus } from './composables/useColorFocus.js';
 // Playback test passage with ReadWorks' existing recording; open /?passage=pride-and-prejudice.
 // Loaded in the reader until the API passage routes (SW-10) serve more than the demo fixture.
 const referencePassages = { 'pride-and-prejudice': () => import('../../../shared/fixtures/pride-and-prejudice.json') };
+// Reviewed demo recordings. A published current.json never replaces these; ?latest=1 previews it
+// (falling back to the pin), and promoting it means updating the pin here.
 const pinnedManifests = {
   demo: '/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json',
   'park-caretaker': '/generated/park-caretaker/human-712a36cf65895354e6b551d5/manifest.json',
@@ -155,8 +157,9 @@ watch(() => player.state.playing, playing => { if (playing) speedTipClosed.value
 async function loadPassage(id) {
   try {
     const preview = devManifest(id);
-    const manifest = preview ? await loadGeneratedPassage(id, preview)
-      : await loadLatestGeneratedPassage(id, pinnedManifests[id]);
+    const followLatest = !preview && new URLSearchParams(window.location.search).get('latest') === '1';
+    const manifest = followLatest ? await loadLatestGeneratedPassage(id, pinnedManifests[id])
+      : await loadGeneratedPassage(id, preview || pinnedManifests[id]);
     if (manifest) return manifest;
   } catch { generationWarning.value = 'Audio is temporarily unavailable. The passage is still available to read.'; }
   if (referencePassages[id]) return (await referencePassages[id]()).default;
