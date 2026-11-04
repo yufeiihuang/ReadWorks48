@@ -9,13 +9,11 @@ const props = defineProps({
   duration: { type: Number, default: 0 },
   volume: { type: Number, default: 1 },
   playbackRate: { type: Number, default: 1 },
-  // Sentence replay needs word timings; hidden/disabled when unavailable.
-  canReplaySentence: { type: Boolean, default: false },
   // The hover tooltip would sit behind the speed suggestion, which is in the same spot.
   speedTipOpen: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['toggle-play', 'restart', 'replay-sentence', 'seek', 'volume-change', 'speed-change']);
+const emit = defineEmits(['toggle-play', 'restart', 'seek', 'volume-change', 'speed-change']);
 const safeDuration = computed(() => Number.isFinite(props.duration) ? Math.max(0, props.duration) : 0);
 const safeCurrentTime = computed(() => Number.isFinite(props.currentTime)
   ? Math.min(Math.max(0, props.currentTime), safeDuration.value)
@@ -30,6 +28,7 @@ function formatTime(seconds) {
 
 <template>
   <section class="audio-toolbar" aria-label="Passage audio controls">
+    <div class="audio-console">
     <div class="audio-player">
       <button
         class="control-button play has-tooltip"
@@ -41,27 +40,6 @@ function formatTime(seconds) {
       >
         <svg v-if="playing" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
         <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" /></svg>
-      </button>
-      <button
-        class="control-button restart labeled-control"
-        type="button"
-        :disabled="disabled"
-        aria-label="Start over"
-        @click="emit('restart')"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2 6M4 4v7h7" /></svg>
-        <span>Start over</span>
-      </button>
-      <button
-        v-if="canReplaySentence"
-        class="control-button replay-sentence labeled-control"
-        type="button"
-        :disabled="disabled"
-        aria-label="Replay sentence"
-        @click="emit('replay-sentence')"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2 6M4 4v7h7" /></svg>
-        <span>Replay sentence</span>
       </button>
       <span class="audio-time">{{ formatTime(safeCurrentTime) }} / {{ safeDuration ? formatTime(safeDuration) : '--:--' }}</span>
       <input
@@ -76,6 +54,16 @@ function formatTime(seconds) {
         :aria-valuetext="`${formatTime(safeCurrentTime)} of ${safeDuration ? formatTime(safeDuration) : 'unknown duration'}`"
         @input="emit('seek', Number($event.target.value))"
       />
+      <button
+        class="control-button restart labeled-control"
+        type="button"
+        :disabled="disabled"
+        aria-label="Start over"
+        @click="emit('restart')"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2 6M4 4v7h7" /></svg>
+        <span>Start over</span>
+      </button>
       <label class="volume-control has-tooltip" data-tooltip="Volume">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM16 8c3 2 3 6 0 8M19 5c5 4 5 10 0 14" /></svg>
         <span class="sr-only">Volume</span>
@@ -104,6 +92,9 @@ function formatTime(seconds) {
         </label>
         <slot name="speed-tip" />
       </div>
+    </div>
+    <slot name="settings" />
+    <div class="console-options"><slot name="options" /></div>
     </div>
   </section>
 </template>
