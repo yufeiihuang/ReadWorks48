@@ -194,6 +194,22 @@ class HumanPreparationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'qaVerified'):
             self.run_step()
 
+    def test_cached_only_cannot_start_a_paid_job_when_the_cache_is_empty(self):
+        self.request['cachedOnly'] = True
+        self.s3.json(self.source_key, self.request)
+        result = self.run_step()
+        self.assertEqual(result['status'], 'failed')
+        self.assertIn('cachedOnly', result['reason'])
+        self.assertEqual(self.service.starts, 0)
+        self.assertNotIn('generated/test/current.json', self.s3.objects)
+
+    def test_cached_only_can_prepare_the_existing_recording_without_transcription(self):
+        self.request['cachedOnly'] = True
+        self.s3.json(self.source_key, self.request)
+        self.cache_transcript()
+        self.assertEqual(self.run_step()['status'], 'ready')
+        self.assertEqual(self.service.starts, 0)
+
 
 class StarterTests(unittest.TestCase):
     def test_duplicate_event_uses_the_same_execution_name(self):

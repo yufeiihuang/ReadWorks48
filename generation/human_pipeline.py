@@ -55,8 +55,9 @@ def validate_request(request, source_key, bucket=None):
         raise ValueError('audio.key must name the content-addressed human-input MP3')
     if not isinstance(audio.get('sourceUrl'), str) or not audio['sourceUrl'].startswith('https://'):
         raise ValueError('audio.sourceUrl must use HTTPS')
-    if not isinstance(request.get('qaVerified', False), bool):
-        raise ValueError('qaVerified must be a boolean')
+    for flag in ('qaVerified', 'cachedOnly'):
+        if not isinstance(request.get(flag, False), bool):
+            raise ValueError(f'{flag} must be a boolean')
     confidence = request.get('minimumConfidence', .8)
     if isinstance(confidence, bool) or not isinstance(confidence, (int,float)) or not math.isfinite(confidence) or not 0 <= confidence <= 1:
         raise ValueError('minimumConfidence must be between 0 and 1')
@@ -114,6 +115,8 @@ def advance(s3, transcribe, bucket, state):
              'passageId': request['id'], 'jobName': job_name}
     transcript, _ = read_json(s3, bucket, transcript_key, optional=True)
     if transcript is None:
+        if request.get('cachedOnly', False):
+            return {**state, 'status': 'failed', 'reason': 'No cached transcript; cachedOnly prevents a new paid transcription job'}
         try:
             job = transcribe.get_transcription_job(TranscriptionJobName=job_name)['TranscriptionJob']
         except ClientError as error:

@@ -41,13 +41,14 @@ class HumanCommandTests(unittest.TestCase):
         s3.head_object.side_effect = ClientError({'Error': {'Code': '404'}}, 'HeadObject')
         session = Mock()
         session.client.return_value = s3
-        with patch('sys.argv', self.argv+['--queue', '--bucket', 'bucket']), patch('human_audio.boto3.Session', return_value=session), contextlib.redirect_stdout(io.StringIO()):
+        with patch('sys.argv', self.argv+['--queue', '--cached-only', '--bucket', 'bucket']), patch('human_audio.boto3.Session', return_value=session), contextlib.redirect_stdout(io.StringIO()):
             main()
         self.assertEqual(session.client.call_args_list[0].args, ('s3',))
         self.assertEqual([call[0] for call in s3.method_calls], ['head_object', 'upload_file', 'put_object'])
         request = json.loads(s3.put_object.call_args.kwargs['Body'])
         self.assertEqual(s3.put_object.call_args.kwargs['Key'], 'human-passages/test.json')
         self.assertTrue(request['qaVerified'])
+        self.assertTrue(request['cachedOnly'])
         self.assertEqual(request['audio']['sha256'], hashlib.sha256(self.audio.read_bytes()).hexdigest())
 
     def test_repeated_queue_does_not_upload_another_version_of_unchanged_audio(self):
@@ -57,3 +58,10 @@ class HumanCommandTests(unittest.TestCase):
         key = upload_recording(s3, 'bucket', self.audio, sha)
         self.assertEqual(key, f'human-input/{sha}/audio.mp3')
         s3.upload_file.assert_not_called()
+
+    def test_cached_only_cannot_be_silently_ignored_outside_queue_mode(self):
+        with patch('sys.argv', self.argv+['--cached-only', '--transcript', str(self.transcript)]), patch('human_audio.boto3.Session') as session, contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as failure:
+                main()
+        self.assertEqual(failure.exception.code, 2)
+        session.assert_not_called()

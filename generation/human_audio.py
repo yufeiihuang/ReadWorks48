@@ -73,6 +73,7 @@ def main():
     parser.add_argument('--output',type=Path,default=Path(__file__).parent/'output'/'human')
     parser.add_argument('--qa-verified',action='store_true',help='Recording has been manually checked against the authoritative passage text')
     parser.add_argument('--transcript',type=Path,help='Reuse a local Transcribe JSON file with no AWS calls or new transcription charge')
+    parser.add_argument('--cached-only',action='store_true',help='With --queue, fail instead of starting a paid job when no transcript is cached')
     parser.add_argument('--queue',action='store_true',help='Upload the recording and source JSON for the asynchronous AWS workflow')
     parser.add_argument('--publish-preview',action='store_true',help='Publish the experimental manifest, including review diagnostics')
     args=parser.parse_args()
@@ -80,6 +81,7 @@ def main():
     if not args.audio.is_file() or args.audio.suffix.lower() != '.mp3': parser.error('--audio must be an existing MP3 file')
     if not 0 < args.audio.stat().st_size <= MAX_AUDIO_BYTES: parser.error('--audio must be between 1 byte and 100 MB')
     if not args.audio_url.startswith('https://'): parser.error('--audio-url must use HTTPS')
+    if args.cached_only and not args.queue: parser.error('--cached-only requires --queue; use --transcript for offline review')
     if args.queue and (args.transcript or args.publish_preview): parser.error('--queue cannot be combined with --transcript or --publish-preview')
     if not args.bucket and (not args.transcript or args.queue or args.publish_preview): parser.error('--bucket is required for AWS processing or publication')
     if args.maximum_wait < 0: parser.error('--maximum-wait cannot be negative')
@@ -90,7 +92,7 @@ def main():
     if args.queue:
         s3=session.client('s3')
         key=upload_recording(s3,args.bucket,args.audio,audio_hash)
-        request={**passage,'qaVerified':args.qa_verified,'minimumConfidence':args.confidence,
+        request={**passage,'qaVerified':args.qa_verified,'cachedOnly':args.cached_only,'minimumConfidence':args.confidence,
                  'audio':{'key':key,'sha256':audio_hash,'sourceUrl':args.audio_url}}
         source_key=f"human-passages/{passage['id']}.json"
         put_json(s3,args.bucket,source_key,request)

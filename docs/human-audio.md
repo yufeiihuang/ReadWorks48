@@ -46,6 +46,8 @@ python generation/human_audio.py YOUR_PASSAGE.json \
   --qa-verified --queue
 ```
 
+For a first AWS smoke run on an already transcribed recording, add `--cached-only`. The workflow then refuses to create a new paid Transcribe job if that recording’s cached transcript is missing. This is checked in AWS, not just by the local helper.
+
 The helper uploads the recording and source JSON in order, then exits; processing continues in AWS with the laptop closed. Unchanged recordings already uploaded by this helper are not uploaded again. The worker still verifies their actual bytes before trusting a transcript cache.
 
 `YOUR_PASSAGE.json` may also be a ReadWorks product JSON, its HTTPS URL, or a ReadWorks UUID. Product JSON is normalized by the existing source adapter. Audio is deliberately supplied as a local approved MP3; the worker does not follow arbitrary external media URLs. `--audio-url` records provenance only.
@@ -101,7 +103,7 @@ The `manifest` query override is available only in development. The production r
 
 Without `--transcript` or `--queue`, the original builder-run mode remains available: provide `--bucket` and the command waits for Transcribe (default maximum 600 seconds). Rerun to resume an in-progress job. `--publish-preview` explicitly uploads the immutable local version but does not change the current pointer. `--qa-verified` is opt-in; without it, the original recognition-confidence filtering remains in place.
 
-Other options: `--profile`, `--region` (default `us-west-2`), `--confidence` (default `0.8`, a filter only in unverified mode), `--output`, and `--maximum-wait`.
+Other options: `--cached-only` (queue mode), `--profile`, `--region` (default `us-west-2`), `--confidence` (default `0.8`, a filter only in unverified mode), `--output`, and `--maximum-wait`.
 
 ## Cost and maintenance
 
