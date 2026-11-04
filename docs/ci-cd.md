@@ -72,3 +72,9 @@ References: [GitHub AWS OIDC](https://docs.github.com/en/actions/how-tos/secure-
 - A failed smoke check reports a failed run even if CloudFormation completed. Inspect the deployed app before deciding whether to revert; smoke failures do not automatically roll back a completed deployment.
 - Revert a faulty application change through a PR and merge it. That creates a new main commit and redeploys the previous code. Do not launch an old workflow run to roll back, because that can deploy an outdated stack template unexpectedly.
 - To pause automatic deployment, disable the workflow in GitHub Actions. This also pauses its CI checks; use manual checks until it is reenabled. Remove the access stack/role when workshop access ends, with administrator approval and care for any reused OIDC provider.
+
+## Workshop activation status
+
+On November 4, 2026, the workshop-authorized `SoundWorksGitHubAccess` stack was created successfully in the same account and region as the deployed reader. The exact immutable main-branch OIDC subject and the three existing CDK bootstrap roles were verified. Repository variables `AWS_ACCOUNT_ID` and `AWS_DEPLOY_ROLE_ARN` are configured. No AWS keys are stored in GitHub.
+
+PR CI passed on GitHub. The first end-to-end automatic deployment is pending merge of this workflow into `main`; AWS OIDC authentication and deployment cannot be verified from a feature-branch PR because the role intentionally trusts main only. The existing live reader was not redeployed during access setup.
