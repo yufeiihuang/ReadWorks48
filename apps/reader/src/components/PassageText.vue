@@ -1,8 +1,11 @@
 <script setup>
-import { computed, ref, useId } from 'vue';
+import { computed, ref, useId, onBeforeUnmount } from 'vue';
+import { definitionGesture } from '../lib/definitionGesture.js';
 import { nextWordIndex } from '../lib/wordCursor.js';
 import { splitSentences } from '../lib/readingParts.js';
 const props = defineProps({
+  definitionsEnabled: { type: Boolean, default: true },
+  officialTokenIds: { type: Array, default: () => [] },
   heading: { type: Boolean, default: false },
   paragraphs: { type: Array, required: true },
   tokens: { type: Array, default: () => [] },
@@ -15,7 +18,7 @@ const props = defineProps({
   sentenceHighlight: { type: Boolean, default: false },
   readingTokenId: { type: String, default: null },
 });
-const emit = defineEmits(['replay']);
+const emit = defineEmits(['replay', 'define', 'word-leave', 'word-enter']);
 // Screen readers read the passage as ordinary sentences, so words are plain text, not buttons.
 // Mouse and touch select a word directly. Keyboard users Tab to the passage once, move a word
 // cursor with the arrow keys (announced politely), and press Enter or Space to read from it.
@@ -23,7 +26,7 @@ const instructionsId = useId();
 const container = ref(null);
 const cursorId = ref(null);
 const announcement = ref('');
-const interactive = computed(() => props.replayEnabled && props.tokens.length > 0);
+const interactive = computed(() => props.tokens.length > 0);
 const rendered = computed(() => props.paragraphs.map(paragraph => ({
   id: paragraph.id,
   items: splitSentences(paragraph.text, props.tokens.filter(item => item.paragraphId === paragraph.id)),
@@ -39,17 +42,32 @@ const sentenceOfToken = computed(() => {
   return map;
 });
 const currentSentence = computed(() => (props.sentenceHighlight && props.readingTokenId ? sentenceOfToken.value.get(props.readingTokenId) : null));
+const gesture = definitionGesture(value => emit('define', value));
+onBeforeUnmount(gesture.cancel);
+function requestDefinition(token, target, keyboard = false) { return { tokenId: token.id, target, keyboard }; }
+function enter(event, token) {
+  if (event.pointerType === 'touch' || !props.definitionsEnabled) return;
+  emit('word-enter');
+  gesture.hover(requestDefinition(token, event.currentTarget));
+}
+function leave() { gesture.cancel(); emit('word-leave'); }
 function select(token) {
+  if (gesture.consumeClick()) return;
   if (!interactive.value) return;
   cursorId.value = token.id;
-  emit('replay', token.id);
+  if (props.replayEnabled) emit('replay', token.id);
 }
 function placeCursor() {
   cursorId.value = props.activeTokenId || cursorId.value || props.tokens[0]?.id || null;
 }
 function onKeydown(event) {
-  if (!interactive.value) return;
   const index = Math.max(0, props.tokens.findIndex(item => item.id === cursorId.value));
+  if (event.key === 'Enter' && event.shiftKey) {
+    event.preventDefault();
+    const token = props.tokens[index];
+    if (token) emit('define', requestDefinition(token, container.value.querySelector(`[data-token-id="${CSS.escape(token.id)}"]`), true));
+    return;
+  }
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
     select(props.tokens[index]);
@@ -78,9 +96,9 @@ function onKeydown(event) {
     @focus="placeCursor"
     @keydown="onKeydown"
   >
-    <component :is="heading ? 'h1' : 'p'" v-for="paragraph in rendered" :key="paragraph.id" :class="{ 'current-part': paragraph.id === focusParagraphId }"><template v-for="(item, itemIndex) in paragraph.items" :key="item.parts ? `s-${item.key}` : `t-${itemIndex}`"><span v-if="item.parts" class="sentence" :class="{ 'current-sentence': currentSentence === `${paragraph.id}:${item.key}` }"><template v-for="(part, index) in item.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive }" @click="select(part)">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span><template v-else>{{ item.text }}</template></template></component>
+    <component :is="heading ? 'h1' : 'p'" v-for="paragraph in rendered" :key="paragraph.id" :class="{ 'current-part': paragraph.id === focusParagraphId }"><template v-for="(item, itemIndex) in paragraph.items" :key="item.parts ? `s-${item.key}` : `t-${itemIndex}`"><span v-if="item.parts" class="sentence" :class="{ 'current-sentence': currentSentence === `${paragraph.id}:${item.key}` }"><template v-for="(part, index) in item.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive, 'official-word': officialTokenIds.includes(part.id) }" @click="select(part)" @pointerenter="enter($event, part)" @pointerleave="leave" @pointerdown="gesture.down($event, requestDefinition(part, $event.currentTarget))" @pointermove="gesture.move" @pointerup="gesture.up" @pointercancel="gesture.up" @contextmenu=" $event.pointerType === 'touch' && $event.preventDefault()">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span><template v-else>{{ item.text }}</template></template></component>
   </div>
-  <p :id="instructionsId" hidden>Use the left and right arrow keys to choose a word, then press Enter to {{ selectAction }}.</p>
+  <p :id="instructionsId" hidden>Use the left and right arrow keys to choose a word, then press Enter to {{ selectAction }}. Press Shift+Enter for a definition. Escape closes the definition card.</p>
   <span class="sr-only" aria-live="polite">{{ announcement }}</span>
 </template>
 
@@ -88,7 +106,8 @@ function onKeydown(event) {
 .read-along-text h1 { margin: 0; font: inherit; }
 .read-along-text:focus { outline: none; }
 .read-along-text:focus-visible { outline: 3px solid #db9d22; outline-offset: 8px; border-radius: 4px; }
-[data-token-id] { border-radius: 3px; scroll-margin: 160px 0 48px; }
+.official-word { text-decoration: underline dotted; text-underline-offset: 5px; }
+[data-token-id] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; border-radius: 3px; scroll-margin: 160px 0 48px; }
 .replayable { cursor: pointer; }
 .replayable:hover { background: #e7f1f4; }
 .spoken-word { background: #ffe28a; box-shadow: 0 0 0 3px #ffe28a; color: #202529; }

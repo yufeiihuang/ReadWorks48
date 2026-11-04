@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "node --watch local.js",
     "start": "node local.js",
-    "check": "node --check server.js && node --check readworks.js && node --check handler.js && node --check local.js",
+    "check": "node --check vocabulary.js && node --check vocabularyRoutes.js && node --check server.js && node --check readworks.js && node --check handler.js && node --check local.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "express": "^5.3.0",
+    "htmlparser2": "^12.0.0",
     "serverless-http": "^4.0.0"
   }
 }

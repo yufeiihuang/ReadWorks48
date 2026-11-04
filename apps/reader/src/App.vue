@@ -1,5 +1,9 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import SettingSwitch from './components/SettingSwitch.vue';
+import VocabularyWord from './components/VocabularyWord.vue';
+import { useVocabulary } from './composables/useVocabulary.js';
+import { ensureTokens } from './lib/vocabulary.js';
 import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
 import ReadingAppearance from './components/ReadingAppearance.vue';
@@ -42,6 +46,7 @@ function devManifest(id) {
   return url && url.startsWith(`/generated/${id}/`) && url.endsWith('/manifest.json') ? url : null;
 }
 const passage = ref(null);
+const { tab, official, officialTokenIds, vocabularyStatus, myWords, hoverEnabled, isSaved, toggleWord, loadVocabulary, card, cardElement, cardStyle, openCard, closeCard, keepCard, leaveCard, tabKey } = useVocabulary(passage, passageId);
 const generationWarning = ref('');
 const highlightDismissed = ref(false);
 const highlightEnabled = ref((() => {
@@ -186,6 +191,8 @@ onMounted(async () => {
   document.addEventListener('click', dismissWordSelection);
   try {
     passage.value = await loadPassage(passageId);
+    ensureTokens(passage.value);
+    loadVocabulary();
     player.load(passage.value.audio?.url);
     if (passage.value.audio?.url) loadGradeId(passage.value).then(id => { gradeId.value = id; });
   } catch (cause) { error.value = cause.message; }
@@ -209,7 +216,7 @@ onMounted(async () => {
     <main v-else class="article-page">
       <section class="article-heading">
         <div class="heading-inner">
-          <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" @replay="selectWord" /></div>
+          <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :definitions-enabled="hoverEnabled" :official-token-ids="officialTokenIds" @define="openCard" @word-enter="keepCard" @word-leave="leaveCard" @replay="selectWord" /></div>
           <h1 v-else>{{ passage.title }}</h1>
           <div class="article-actions" aria-label="Passage actions">
             <button disabled title="Assignments are not available in this preview">Assign</button>
@@ -217,7 +224,9 @@ onMounted(async () => {
             <button class="icon-button" :aria-pressed="projector" :aria-label="projector ? 'Exit projector view' : 'Enter whiteboard or projector view'" @click="projector = !projector"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="1"/><path d="M9 20h6M12 16v4"/></svg></button>
             <button class="icon-button" :aria-pressed="saved" :aria-label="saved ? 'Remove bookmark' : 'Bookmark passage for this session'" @click="saved = !saved"><svg viewBox="0 0 24 24" aria-hidden="true" :class="{ filled: saved }"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
           </div>
-          <nav class="article-tabs" aria-label="Passage sections"><span class="active" aria-current="page">Passage</span><button disabled>Vocabulary Activity <span class="soon-badge">Coming soon</span></button><button disabled>Question Set <span class="soon-badge">Coming soon</span></button></nav>
+          <nav class="article-tabs" role="tablist" aria-label="Passage sections" @keydown="tabKey">
+            <button v-for="name in ['passage', 'vocabulary']" :key="name" :id="`tab-${name}`" role="tab" :class="{ active: tab === name }" :aria-selected="tab === name" :aria-controls="`panel-${name}`" :tabindex="tab === name ? 0 : -1" @click="tab = name">{{ name === 'passage' ? 'Passage' : 'Vocabulary' }}</button>
+          </nav>
         </div>
       </section>
       <div class="article-layout">
@@ -265,6 +274,7 @@ onMounted(async () => {
               </select>
             </label>
             <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont">
+              <SettingSwitch v-model="hoverEnabled" label="Definitions on hover" />
               <label v-if="hasTimings" class="highlight-control">
                 <span>Highlight</span>
                 <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
@@ -274,9 +284,19 @@ onMounted(async () => {
             </ReadingAppearance>
             <ColorFocusPanel :settings="focus" :part-count="focusParts.length" :current-part="currentPart" :has-timings="canSelectWords" />
           </div>
-          <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
-            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
+          <div id="panel-passage" role="tabpanel" aria-labelledby="tab-passage" v-show="tab === 'passage'" class="passage-panel passage-frame" :class="focus.on && `tint-${focus.tint}`">
+            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" :definitions-enabled="hoverEnabled" :official-token-ids="officialTokenIds" @define="openCard" @word-enter="keepCard" @word-leave="leaveCard" @replay="selectWord" />
           </div>
+          <section v-show="tab === 'vocabulary'" id="panel-vocabulary" class="vocabulary-view" role="tabpanel" aria-labelledby="tab-vocabulary">
+            <h2>Words to learn (official)</h2>
+            <p v-if="vocabularyStatus" role="status">{{ vocabularyStatus }}</p>
+            <p v-else-if="!official.length">This passage has no official word list.</p>
+            <VocabularyWord v-for="entry in official" :key="entry.tokenId" :entry="entry" :saved="isSaved(entry)" :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+            <h2>My words (personal)</h2>
+            <p v-if="!myWords.length">Add words with the star in a definition card.</p>
+            <VocabularyWord v-for="entry in myWords" :key="entry.word" :entry="entry" saved :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+            <small><a href="https://simple.wiktionary.org/" target="_blank" rel="noopener">Definitions from Simple English Wiktionary (CC BY-SA 4.0)</a></small>
+          </section>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
         <aside class="details" aria-labelledby="details-title">
@@ -299,6 +319,10 @@ onMounted(async () => {
         </button>
       </div>
     </main>
+    <Teleport to="body"><section v-if="card" ref="cardElement" class="definition-card" :style="cardStyle" role="dialog" aria-label="Word definition" tabindex="-1" @pointerenter="keepCard" @pointerleave="leaveCard" @focusin="keepCard" @focusout="!$event.currentTarget.contains($event.relatedTarget) && leaveCard()">
+      <button class="definition-close" aria-label="Close definition" @click="closeCard">×</button>
+      <VocabularyWord :entry="card" :saved="isSaved(card)" :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+    </section></Teleport>
     <footer>ReadWorks SoundWorks <span>Hackathon reader preview</span></footer>
   </div>
 </template>

@@ -1,7 +1,9 @@
 import express from 'express';
 import passage from '../../shared/fixtures/demo.json' with { type: 'json' };
 import { fetchReadWorksPassage, isReadWorksId } from './readworks.js';
+import { vocabularyRoutes } from './vocabularyRoutes.js';
 const app = express();
+vocabularyRoutes(app);
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.get('/api/passages', async (_req, res, next) => {
   try { res.json([{ id: passage.id, title: passage.title }]); } catch (error) { next(error); }
