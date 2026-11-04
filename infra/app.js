@@ -73,8 +73,17 @@ assets.grantPut(humanTask, 'human-transcripts/*');
 assets.grantRead(humanTask, 'generated/*');
 assets.grantPut(humanTask, 'generated/*');
 humanTask.addToRolePolicy(new PolicyStatement({
-  actions: ['transcribe:StartTranscriptionJob', 'transcribe:GetTranscriptionJob'],
+  actions: ['transcribe:GetTranscriptionJob'],
   resources: [stack.formatArn({ service: 'transcribe', resource: 'transcription-job', resourceName: 'soundworks-human-*' })],
+}));
+// StartTranscriptionJob does not support job-ARN resource scoping. Constrain
+// its required wildcard grant to our private output bucket and transcript prefix.
+humanTask.addToRolePolicy(new PolicyStatement({
+  actions: ['transcribe:StartTranscriptionJob'], resources: ['*'],
+  conditions: {
+    StringEquals: { 'transcribe:OutputBucketName': assets.bucketName },
+    StringLike: { 'transcribe:OutputKey': 'human-transcripts/*' },
+  },
 }));
 const advanceHuman = new LambdaInvoke(stack, 'AdvanceHumanAudio', {
   lambdaFunction: humanTask, outputPath: '$.Payload',

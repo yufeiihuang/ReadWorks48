@@ -26,7 +26,7 @@ function localGeneration() {
         const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
         if (range) {
           // Audio elements seek with range requests.
-          const start = range[1] ? Number(range[1]) : size - Number(range[2]);
+          const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
           const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
           if (start < 0 || start >= size || end < start) {
             res.writeHead(416, { 'Content-Range': `bytes */${size}` });

@@ -55,3 +55,15 @@ test('human transcription waits in Step Functions, with a bounded timeout and no
   assert.match(policies, /transcription-job\/soundworks-human-/);
   assert.ok(!policies.includes('transcribe:*'));
 });
+
+test('Transcribe start uses supported output-location conditions, while reads are restricted to our job names', () => {
+  const statements = ofType('AWS::IAM::Policy').flatMap(p => p.Properties.PolicyDocument.Statement);
+  const containsAction = (statement, action) => [statement.Action].flat().includes(action);
+  const start = statements.find(s => containsAction(s, 'transcribe:StartTranscriptionJob'));
+  const get = statements.find(s => containsAction(s, 'transcribe:GetTranscriptionJob'));
+  assert.equal(start.Resource, '*');
+  assert.ok(start.Condition.StringEquals['transcribe:OutputBucketName']);
+  assert.equal(start.Condition.StringLike['transcribe:OutputKey'], 'human-transcripts/*');
+  assert.match(JSON.stringify(get.Resource), /transcription-job\/soundworks-human-/);
+  assert.notEqual(get.Resource, '*');
+});

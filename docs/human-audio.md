@@ -111,6 +111,8 @@ Other options: `--profile`, `--region` (default `us-west-2`), `--confidence` (de
 - Step Functions is billed per transition, with S3, Lambda, transcription, and delivery billed separately. Waiting avoids a paid Lambda invocation sitting idle for the transcription duration. There is no continuously running worker. Use a small representative batch before scaling.
 - The new workflow is tested locally with fake AWS clients and synthesized infrastructure. Real AWS transcription and workflow execution still need a sandbox smoke run after deployment; the cached local sample is not evidence of a new live Transcribe run.
 
+Transcribe start permission uses the wildcard resource required by AWS, constrained to this bucket and the `human-transcripts/*` output prefix. Reading job status is restricted to the `soundworks-human-*` job names. See the [AWS authorization reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_transcribe.html).
+
 References: [Transcribe batch API](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_StartTranscriptionJob.html), [CDK Step Functions](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_stepfunctions-readme.html).
 
 ## Verification
