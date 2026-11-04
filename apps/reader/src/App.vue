@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
+import ReadingAppearance from './components/ReadingAppearance.vue';
 import { findActiveToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
 import { loadGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
@@ -29,6 +30,18 @@ const highlightEnabled = ref((() => {
 watch(highlightEnabled, enabled => {
   try { localStorage.setItem('soundworks.highlightEnabled', String(enabled)); } catch {}
 });
+const appearance = (() => {
+  try { return JSON.parse(localStorage.getItem('soundworks.readingAppearance')) || {}; } catch { return {}; }
+})();
+const fontScale = ref([0.75, 1, 1.25, 1.5, 1.75, 2].includes(appearance.scale) ? appearance.scale : 1);
+const dyslexiaFont = ref(appearance.dyslexia === true);
+watch([fontScale, dyslexiaFont], ([scale, dyslexia]) => {
+  try { localStorage.setItem('soundworks.readingAppearance', JSON.stringify({ scale, dyslexia })); } catch {}
+});
+const readingStyle = computed(() => ({
+  '--reading-scale': fontScale.value,
+  '--reading-font-family': dyslexiaFont.value ? 'OpenDyslexic, sans-serif' : 'inherit',
+}));
 const error = ref('');
 const saved = ref(false);
 const projector = ref(false);
@@ -125,7 +138,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div :class="{ projector }">
+  <div :class="{ projector }" :style="readingStyle">
     <header class="site-header">
       <a class="brand" href="/" aria-label="ReadWorks SoundWorks home">Read<span>Works</span><sup>®</sup></a>
       <span class="preview-label">SoundWorks · Reader preview</span>
@@ -162,31 +175,34 @@ onMounted(async () => {
             @volume-change="player.setVolume"
             @speed-change="player.setPlaybackRate"
           />
-          <p class="audio-status">
+          <p v-if="generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings" class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
               <template v-else-if="player.state.status === 'empty'">Audio isn't ready for this passage yet. You can still read it.</template>
               <template v-else-if="player.state.status === 'error' || player.state.error">{{ player.state.error }}</template>
               <template v-else-if="player.state.status === 'loading'">Loading audio…</template>
               <template v-else-if="player.state.buffering">Buffering audio…</template>
-              <template v-else-if="hasIncompleteTimings">Select a word to hear it again. Some words are not available for highlighting.</template>
-              <template v-else-if="hasTimings">Select any word to hear it again.</template>
+              <template v-else-if="hasIncompleteTimings">Some words are not available for highlighting.</template>
               <template v-else>Press play to listen. Word highlighting is not available for this passage.</template>
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
-          <div v-if="canSelectWords || hasTimings" class="reading-options" aria-label="Reading options">
-            <fieldset v-if="canSelectWords" class="word-action">
-              <legend>Tap a word to</legend>
-              <label :class="{ selected: wordAction === 'read' }"><input v-model="wordAction" type="radio" name="word-action" value="read">Read from there</label>
-              <label :class="{ selected: wordAction === 'say' }"><input v-model="wordAction" type="radio" name="word-action" value="say">Hear just that word</label>
-            </fieldset>
-            <label v-if="hasTimings" class="highlight-control">
-              <span>Highlight</span>
-              <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
-              <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
-              <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+          <div class="reading-settings" aria-label="Reading settings" role="group">
+            <label v-if="canSelectWords" class="word-action">
+              <span>Tap a word to</span>
+              <select v-model="wordAction" aria-label="Tap a word to">
+                <option value="read">Read from there</option>
+                <option value="say">Hear just that word</option>
+              </select>
             </label>
+            <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont">
+              <label v-if="hasTimings" class="highlight-control">
+                <span>Highlight</span>
+                <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
+                <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
+                <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+              </label>
+            </ReadingAppearance>
           </div>
           <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" @replay="selectWord" />
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
