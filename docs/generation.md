@@ -87,6 +87,10 @@ On November 3, 2026, Stephen Neural was confirmed available in `us-west-2`. Loca
 
 https://d1381qenwhm2qw.cloudfront.net/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json
 
+On November 4, 2026, the demo was generated again with pipeline version 3, which adds a separate recording of each word for "Hear just that word". Its passage audio, words and timings are identical to the sample above. The reader now pins this version:
+
+https://d1381qenwhm2qw.cloudfront.net/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json
+
 A separate 3,824-character input generated one recording with 630 word timings over two chunks. Local cache reuse was verified. Seven unit tests and three infrastructure tests passed. These are functional checks, not a measured perceptual timing or pronunciation score; listen to the samples before demo sign-off.
 
 ## Integrated reader and preview
