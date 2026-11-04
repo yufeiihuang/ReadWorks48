@@ -56,11 +56,11 @@ node scripts/smoke-deployment.mjs https://d1381qenwhm2qw.cloudfront.net
 
 Review the diff before accepting deployment. Vue changes upload to the website bucket and invalidate CloudFront's cache. Express changes update the bundled API Lambda. Python generation changes update its Lambda package. CDK changes update the AWS resources and permissions described by the stack. Use ReaderUrl from the latest deployment outputs if recreating the environment changes the domain.
 
-GitHub pushes do not deploy automatically. Coordinate deployments so two builders do not update the shared stack simultaneously. Never edit deployed functions manually in the AWS console; keep deployable changes in this repo.
+After the one-time [GitHub Actions setup](ci-cd.md), merges to `main` run checks and automatically deploy the whole stack. PRs only run checks. Until the AWS deployment role is configured, continue deploying manually. Coordinate manual deployments with Actions so two builders do not update the shared stack simultaneously. Never edit deployed functions manually in the AWS console; keep deployable changes in this repo.
 
 ## Verify after deployment
 
-Run `node scripts/smoke-deployment.mjs https://READER_DOMAIN` from the repo root. Open ReaderUrl and confirm the sample passage renders. Check `ReaderUrl/api/health` returns `{"status":"ok"}`, `/api/passages` returns a listing, `/api/passages/demo` returns the manifest, and `/api/passages/missing` returns 404. Check developer tools for failed asset requests. Audio is intentionally unavailable in this skeleton.
+Run `node scripts/smoke-deployment.mjs https://READER_DOMAIN` from the repo root. Open ReaderUrl and confirm the sample passage renders. Check `ReaderUrl/api/health` returns `{"status":"ok"}`, `/api/passages` returns a listing, `/api/passages/demo` returns the manifest, and `/api/passages/missing` returns 404. Check developer tools for failed asset requests. Verify passage audio and highlighting in the browser separately; the smoke script checks HTTP delivery and API responses.
 
 Use an authenticated AWS Lambda invocation to test the private generation foundation with `{"passage": <complete input passage>}`; expect `status: ready` and a manifest URL. Verify the returned manifest/audio through `/generated/...`. See [generation instructions](generation.md).
 
