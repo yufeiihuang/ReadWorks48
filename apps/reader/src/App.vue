@@ -170,7 +170,12 @@ onMounted(async () => {
               <label :class="{ selected: wordAction === 'read' }"><input v-model="wordAction" type="radio" name="word-action" value="read">Read from there</label>
               <label :class="{ selected: wordAction === 'say' }"><input v-model="wordAction" type="radio" name="word-action" value="say">Hear just that word</label>
             </fieldset>
-            <button v-if="hasTimings" class="highlight-toggle" type="button" :aria-pressed="highlightEnabled" @click="toggleHighlighting">Highlight {{ highlightEnabled ? 'on' : 'off' }}</button>
+            <label v-if="hasTimings" class="highlight-control">
+              <span>Highlight</span>
+              <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
+              <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
+              <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+            </label>
           </div>
           <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" @replay="selectWord" />
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>

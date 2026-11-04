@@ -50,9 +50,15 @@ svg.filled { fill: currentColor; }
 .word-action label:has(input:focus-visible) { outline: 3px solid #db9d22; outline-offset: 2px; }
 .reading-options { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: -16px 14px 24px; }
 .reading-options .word-action { margin: 0; }
-.highlight-toggle { margin-left: auto; border: 1px solid #bacbd1; border-radius: 18px; min-height: 36px; padding: 6px 14px; background: white; color: #345d6b; font-size: 13px; white-space: nowrap; }
-.highlight-toggle[aria-pressed="true"] { background: #e0edf1; border-color: #347b91; }
-.highlight-toggle:hover { background: #d5e6ec; }
+.highlight-control { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-left: auto; min-height: 36px; color: #345d6b; font-size: 13px; cursor: pointer; }
+.highlight-switch { position: absolute; right: 34px; top: 50%; width: 40px; height: 24px; transform: translateY(-50%); margin: 0; opacity: 0; cursor: pointer; }
+.highlight-track { display: inline-flex; align-items: center; width: 40px; height: 24px; padding: 3px; border-radius: 12px; background: #87979e; transition: background .15s; }
+.highlight-thumb { width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #0003; transition: transform .15s; }
+.highlight-switch:checked + .highlight-track { background: var(--teal); }
+.highlight-switch:checked + .highlight-track .highlight-thumb { transform: translateX(16px); }
+.highlight-switch:focus-visible + .highlight-track { outline: 3px solid #db9d22; outline-offset: 3px; }
+.highlight-state { width: 26px; }
+@media (prefers-reduced-motion: reduce) { .highlight-track, .highlight-thumb { transition: none; } }
 .passage { font-size: 17px; color: #202529; line-height: 1.8; text-align: justify; }
 .passage p { margin: 0 0 24px; }
 .passage-credit { border-top: 1px solid #edf0f0; padding-top: 20px; color: #74808a; font-size: 12px; margin-top: 40px; }
