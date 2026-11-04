@@ -44,8 +44,8 @@ const title = id => passages.find(p => p.id === id)?.title || id;
 <template>
   <header class="site-header"><a class="brand" href="/">Read<span>Works</span><sup>®</sup></a><nav class="teacher-nav"><span>Teacher dashboard</span><a href="/">Open reader ↗</a></nav></header>
   <main class="teacher-page">
-    <section class="teacher-intro"><span class="eyebrow">YOUR CLASSROOM</span><h1>A reading for every learner.</h1><p>Choose a passage, decide how students listen, and share their next reading.</p></section>
-    <p class="demo-notice">Demo classroom · Roster and assignments are saved only in this browser. Share reading links with students; notifications and student accounts are not connected.</p>
+    <section class="teacher-intro"><h1>Assignments</h1></section>
+    <p class="demo-notice">Demo: assignments save on this device. Send students the reading link.</p>
     <div class="teacher-grid">
       <form class="teacher-card assignment-form" @submit.prevent="assign">
         <h2>Create an assignment</h2>
@@ -55,9 +55,9 @@ const title = id => passages.find(p => p.id === id)?.title || id;
         <label class="due-date">Due date <span>(optional)</span><input type="date" v-model="due"></label>
         <p v-if="error" role="alert" class="teacher-error">{{ error }}</p><button class="assign-primary" type="submit">Assign reading <span>→</span></button>
       </form>
-      <aside class="teacher-card assignment-summary"><span class="eyebrow">AT A GLANCE</span><h2>Your classroom</h2><div class="class-stats"><div><strong>{{ roster.length }}</strong><span>Students</span></div><div><strong>{{ assignments.length }}</strong><span>Assignments</span></div></div><hr><h3>Flexible support</h3><p>Assign the same passage with different audio options to different students.</p><p>Students can adjust text size and font in either mode.</p></aside>
+      <aside class="teacher-card assignment-summary"><h2>Your classroom</h2><div class="class-stats"><div><strong>{{ roster.length }}</strong><span>Students</span></div><div><strong>{{ assignments.length }}</strong><span>Assignments</span></div></div><hr><p>Audio can be turned on or off for each assignment. Text size and font settings are always available.</p></aside>
     </div>
-    <section class="assignment-list"><div class="list-heading"><h2>Assigned readings</h2><span>{{ assignments.length }} total</span></div><p role="status" class="teacher-success" v-if="status">{{ status }}</p><div v-if="!assignments.length" class="empty-assignments"><h3>Your next reading starts here.</h3><p>Create an assignment above. Its reading link will appear here.</p></div><article class="assignment-row" v-for="item in assignments" :key="item.id"><div><span class="audio-badge">{{ item.audio ? 'With audio' : 'Without audio' }}</span><h3>{{ title(item.passage) }}</h3><p>{{ item.students.join(', ') }}</p><small v-if="item.due">Due {{ item.due }}</small></div><div class="assignment-actions"><a :href="link(item)" target="_blank" rel="noopener">Open reading ↗</a><button @click="copy(item)">Copy link</button><button class="remove-assignment" @click="remove(item)" :aria-label="`Remove assignment: ${title(item.passage)}`">Remove</button></div></article></section>
+    <section class="assignment-list"><div class="list-heading"><h2>Assigned readings</h2><span>{{ assignments.length }} total</span></div><p role="status" class="teacher-success" v-if="status">{{ status }}</p><div v-if="!assignments.length" class="empty-assignments"><h3>No assignments yet.</h3><p>Assigned readings will appear here.</p></div><article class="assignment-row" v-for="item in assignments" :key="item.id"><div><span class="audio-badge">{{ item.audio ? 'With audio' : 'Without audio' }}</span><h3>{{ title(item.passage) }}</h3><p>{{ item.students.join(', ') }}</p><small v-if="item.due">Due {{ item.due }}</small></div><div class="assignment-actions"><a :href="link(item)" target="_blank" rel="noopener">Open reading ↗</a><button @click="copy(item)">Copy link</button><button class="remove-assignment" @click="remove(item)" :aria-label="`Remove assignment: ${title(item.passage)}`">Remove</button></div></article></section>
   </main>
 </template>
 <style scoped>
