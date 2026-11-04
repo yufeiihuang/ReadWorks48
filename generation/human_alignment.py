@@ -8,7 +8,7 @@ import re
 import unicodedata
 from pipeline import utf16_length, validate_passage
 
-ALIGNER_VERSION = 4
+ALIGNER_VERSION = 5
 WORD = re.compile(r"\d{1,3}(?:,\d{3})+(?![\w,])|[^\W_]+(?:['’\-][^\W_]+)*", re.UNICODE)
 SMALL = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split()
 TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
@@ -81,11 +81,24 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_
     # Recover small one-to-one recognition substitutions between exact context anchors.
     # Do not assign introductions, missing ASR words, or many-to-one phrases a guessed time.
     recovered_units = set()
+    joined_units = set()
     source_unit_counts = Counter(i for _,i in source_units)
     speech_unit_counts = Counter(i for _,i in speech_units)
     if qa_verified:
         operations = matcher.get_opcodes()
         for op_index, (kind, a, b, c, d) in enumerate(operations):
+            # Exact concatenation handles ASR compounds without changing authoritative text.
+            # Require surrounding exact context and complete, independent source words.
+            if (kind == 'replace' and 2 <= b-a <= 3 and d-c == 1
+                    and op_index > 0 and op_index < len(operations)-1
+                    and operations[op_index-1][0] == operations[op_index+1][0] == 'equal'
+                    and ''.join(source_units[i][0] for i in range(a,b)) == speech_units[c][0]
+                    and speech_unit_counts[speech_units[c][1]] == 1
+                    and all(source_unit_counts[source_units[i][1]] == 1 for i in range(a,b))):
+                for i in range(a,b):
+                    mapping[i] = c
+                    joined_units.add(i)
+                continue
             if kind != 'replace' or not 0 < b-a == d-c <= 3:
                 continue
             if op_index == 0 or op_index == len(operations)-1:
@@ -133,14 +146,23 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_
             continue
         start = min(item['startMs'] for item in items)
         end = max(item['endMs'] for item in items)
-        if start < last_timing:
-            uncertain.append({**word,'reason':'nonmonotonic'})
-            continue
         shared = any(speech_owners[speech_id] != {index} for speech_id in speech_ids)
         precision = 'word'
-        if shared:
+        if shared and all(unit in joined_units for unit in units):
+            owners = sorted(speech_owners[next(iter(speech_ids))])
+            weights = [len(''.join(canonical_units(source_words[i]['text']))) for i in owners]
+            position = owners.index(index)
+            span = end-start
+            original_start = start
+            start = original_start + span * sum(weights[:position]) / sum(weights)
+            end = original_start + span * sum(weights[:position+1]) / sum(weights)
+            precision = 'estimated'
+        elif shared:
             phrase_level.append(word['id'])
             uncertain.append({**word, 'reason': 'phrase_only', 'confidence': confidence})
+            continue
+        if start < last_timing:
+            uncertain.append({**word,'reason':'nonmonotonic'})
             continue
         if any(unit in recovered_units for unit in units):
             recovered_words.append(word['id'])
@@ -149,7 +171,7 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_
         tokens.append(word)
         timings.append({'tokenId':word['id'],'startMs':round(start,3),'endMs':round(end,3),
                         'confidence':confidence,'precision':precision,
-                        'matchMethod':'qa-context' if any(unit in recovered_units for unit in units) else 'exact'})
+                        'matchMethod':'qa-compound-split' if precision == 'estimated' else 'qa-context' if any(unit in recovered_units for unit in units) else 'exact'})
         used_speech.update(speech_ids)
         if first_timing is None: first_timing=start
         last_timing=start
@@ -164,8 +186,9 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_
               'phraseLevelTokenIds':phrase_level,'firstPassageWordMs':first_timing,
               'unassignedSpeech':[item for i,item in enumerate(speech) if i not in used_speech],
               'minimumConfidence':minimum_confidence,'qaVerified':qa_verified,
+              'estimatedTokenIds':[t['tokenId'] for t in timings if t['precision'] == 'estimated'],
               'contextRecoveredTokenIds':recovered_words,'acceptedLowConfidenceTokenIds':low_confidence_matches,
-              'needsReview':bool(uncertain or phrase_level)}
+              'needsReview':bool(uncertain or phrase_level or any(t['precision'] == 'estimated' for t in timings))}
     manifest = {**passage,'schemaVersion':1,'assetVersion':'human-'+digest[:24],
                 'audio':{'url':prefix+'/audio.mp3','sourceUrl':audio_url,'engine':'human','voice':'Original ReadWorks narrator','sha256':audio_hash},
                 'tokens':tokens,'timings':timings,'timingsUrl':prefix+'/timings.json',
