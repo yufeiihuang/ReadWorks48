@@ -153,13 +153,13 @@ function changeSpeed(speed) {
 }
 watch(() => player.state.playing, playing => { if (playing) speedTipClosed.value = true; });
 async function loadPassage(id) {
-  if (referencePassages[id]) return (await referencePassages[id]()).default;
   try {
     const preview = devManifest(id);
     const manifest = preview ? await loadGeneratedPassage(id, preview)
       : await loadLatestGeneratedPassage(id, pinnedManifests[id]);
     if (manifest) return manifest;
   } catch { generationWarning.value = 'Audio is temporarily unavailable. The passage is still available to read.'; }
+  if (referencePassages[id]) return (await referencePassages[id]()).default;
   const response = await fetch(`/api/passages/${encodeURIComponent(id)}`);
   if (!response.ok) throw new Error('The passage could not be loaded.');
   return response.json();
