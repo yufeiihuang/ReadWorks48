@@ -2,6 +2,11 @@
 
 Three-day ReadWorks hackathon scaffold: Vue reader, Express API, Python audio preparation, and AWS CDK infrastructure. Narration will use Polly Neural.
 
+## Live demo
+
+- [SoundWorks reader](https://d1381qenwhm2qw.cloudfront.net/)
+- [Teacher dashboard](https://d1381qenwhm2qw.cloudfront.net/?view=teacher)
+
 ## Start locally
 
 Use Node 24 LTS (`nvm use` if available). Node 20.19+ also runs the current scaffold.
