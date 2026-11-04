@@ -26,6 +26,30 @@ import re
 # never inject SSML/XML markup. Letters, spaces, hyphen, apostrophe only.
 _PRONUNCIATION_RE = re.compile(r"^[A-Za-z][A-Za-z '\-]*[A-Za-z]$|^[A-Za-z]$")
 
+# How far on each side of the model's reported start to search for the real span
+# when its offsets don't line up. Small on purpose: just enough to absorb a few
+# miscounted characters (e.g. a leading quote), not enough to grab a distant word.
+_OFFSET_RECOVERY_WINDOW = 8
+
+
+def _recover_offset(text, original, reported_start):
+    """Find where `original` actually occurs near `reported_start`.
+
+    Returns the start index of the single exact occurrence of `original` whose
+    start lies within +/- _OFFSET_RECOVERY_WINDOW of `reported_start`. Returns
+    None when there is no occurrence in that window, or more than one (ambiguous).
+    Only exact, case-sensitive substring matches count, so the recovered span is
+    guaranteed to equal `original`.
+    """
+    if not original or not isinstance(reported_start, int):
+        return None
+    window_lo = max(0, reported_start - _OFFSET_RECOVERY_WINDOW)
+    window_hi = min(len(text) - len(original), reported_start + _OFFSET_RECOVERY_WINDOW)
+    if window_hi < window_lo:
+        return None
+    matches = [i for i in range(window_lo, window_hi + 1) if text[i:i + len(original)] == original]
+    return matches[0] if len(matches) == 1 else None
+
 # Default to a cross-region inference profile (the "us." prefix). The newer
 # Anthropic Claude models in our account only support INFERENCE_PROFILE
 # invocation, so a bare on-demand model id is rejected with
@@ -121,18 +145,25 @@ def validate_suggestions(text, suggestions):
             continue
         if isinstance(start, bool) or isinstance(end, bool):
             continue
-        if not (0 <= start < end <= len(text)):
-            continue
         if not isinstance(original, str) or not isinstance(pronunciation, str):
             continue
-        # The model's offsets are untrusted: the span must actually be `original`.
-        if text[start:end] != original:
-            continue
         # Prototype scope: single display word only (no spaces inside the span).
-        if original.strip() != original or re.search(r'\s', original):
+        if original.strip() != original or re.search(r'\s', original) or not original:
             continue
         if not _PRONUNCIATION_RE.match(pronunciation):
             continue
+        # The model's offsets are untrusted. If start:end already spans `original`
+        # exactly, use it. Otherwise try to recover the real offsets by locating
+        # `original` in a small window around the reported position (models often
+        # miscount, e.g. a leading curly quote). Recovery requires exactly one
+        # occurrence in the window; zero or multiple -> reject as unreliable.
+        if 0 <= start < end <= len(text) and end - start == len(original) and text[start:end] == original:
+            located = start
+        else:
+            located = _recover_offset(text, original, start)
+        if located is None:
+            continue
+        start, end = located, located + len(original)
         # No-op guard: if the suggested pronunciation equals the original word
         # (ignoring case), the substitution would not change synthesis. Drop it so
         # the word uses the normal Polly path without a pointless <sub>.
