@@ -1,4 +1,6 @@
 :root { font-family: 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif; color: #344048; font-size: 17px; font-synthesis: none; --teal: #007693; }
+/* Room for a scrollbar is always kept, so the centered page can't shift sideways when one appears. */
+html { scrollbar-gutter: stable; }
 * { box-sizing: border-box; }
 body { margin: 0; background: white; }
 button, select, input { font: inherit; }
@@ -33,7 +35,12 @@ svg.filled { fill: currentColor; }
 .soon-badge { font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--teal); background: white; border: 1px solid #a9c8d2; border-radius: 999px; padding: 1px 8px; }
 @media (max-width: 760px) { .article-tabs button:disabled { flex-direction: column; align-items: flex-start; gap: 4px; } }
 .article-layout { max-width: 1170px; margin: 0 auto; padding: 26px 24px 64px; display: grid; grid-template-columns: minmax(0, 1fr) 255px; gap: 54px; min-height: 470px; }
-.audio-toolbar { width: 100%; position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; background: white; padding: 8px 0; }
+.audio-toolbar { width: 100%; position: sticky; top: 0; z-index: 5; background: white; padding: 8px 0; box-shadow: 12px 0 white, -12px 0 white; } /* The shadow keeps text and highlights scrolling underneath from peeking out at the sides. */
+/* The console: one card holding the play bar, the Aa button and the on-page options. */
+.audio-console { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 10px 12px; border: 1px solid #dcdee0; border-radius: 22px; background: #eef2f3; }
+.audio-console .settings-menu { grid-column: 2; grid-row: 1; }
+.console-options { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; padding: 0 8px; }
+.console-options:empty { display: none; }
 .floating-actions { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .follow-return { display: flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; background: var(--teal); color: white; padding: 10px 20px; min-height: 44px; font-size: 15px; white-space: nowrap; box-shadow: 0 4px 14px rgb(0 0 0 / 0.2); }
 .follow-return:hover { background: #235b6e; }
@@ -43,7 +50,7 @@ svg.filled { fill: currentColor; }
 .keep-going { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; background: var(--teal); color: white; padding: 9px 16px; font-weight: 600; }
 .keep-going svg { fill: currentColor; width: 16px; height: 16px; }
 .part-break:hover .keep-going { background: #235b6e; }
-.audio-player { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: #f1f3f4; border-radius: 28px; padding: 8px 14px; min-height: 52px; flex: 1 1 0; min-width: 0; }
+.audio-player { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: white; border: 1px solid #dcdee0; border-radius: 22px; padding: 7px 14px; min-height: 52px; min-width: 0; }
 .audio-player .control-button { border: none; padding: 0; display: grid; place-items: center; background: none; color: #345d6b; flex: 0 0 28px; min-height: 32px; }
 .audio-player .labeled-control { display: inline-flex; flex: 0 0 auto; gap: 5px; font-size: 12px; white-space: nowrap; padding: 0 3px; }
 .audio-player .labeled-control svg { width: 18px; height: 18px; }
@@ -51,17 +58,15 @@ svg.filled { fill: currentColor; }
 .audio-player .control-button svg { width: 21px; height: 21px; }
 .audio-time { font-size: 14px; white-space: nowrap; color: #52616a; }
 .audio-player input[type=range] { height: 5px; accent-color: var(--teal); }
-.audio-progress { flex: 1 1 100px; min-width: 60px; }
-.volume-control { display: flex; align-items: center; gap: 6px; flex: 0 0 82px; color: #52616a; }
+.audio-progress { flex: 1 1 150px; min-width: 60px; }
+.volume-control { display: flex; align-items: center; gap: 6px; flex: 0 0 105px; color: #52616a; }
 .volume-control svg { flex: 0 0 20px; }
-.volume-control input { width: 56px; min-width: 0; }
+.volume-control input { width: 75px; min-width: 0; }
 .speed-control { display: flex; align-items: center; gap: 5px; color: #52616a; font-size: 13px; white-space: nowrap; }
 .speed-control select { border: 1px solid #c8d2d6; border-radius: 16px; padding: 4px 30px 4px 10px; background-color: white; color: #344048; font-size: 14px; }
-.audio-status { font-size: 12px; color: #707c84; margin: 8px 14px 26px; min-height: 1.5em; }
+.audio-status { font-size: 12px; color: #707c84; margin: 0 14px 8px; min-height: 1.5em; }
+.passage-frame { margin-top: 18px; }
 .audio-status button { border: 0; padding: 0; margin-left: 6px; background: none; color: var(--teal); font-size: 12px; text-decoration: underline; }
-.reading-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin: 12px 0 26px; }
-.reading-settings:empty { display: none; }
-.word-action { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 13px; color: #52616a; }
 .part-progress { display: flex; align-items: center; gap: 8px; margin: 0 0 0 auto; color: #345d6b; font-size: 13px; }
 .part-dots { display: inline-flex; gap: 5px; }
 .part-dots i { width: 9px; height: 9px; border-radius: 50%; background: #d3dadd; }
@@ -72,8 +77,7 @@ svg.filled { fill: currentColor; }
 .settings-panel .highlight-control { display: flex; width: 100%; color: inherit; font-size: 15px; }
 .settings-panel .highlight-track { flex: none; margin-left: auto; }
 .settings-panel .highlight-state { flex: none; }
-.word-action select { padding: 6px 28px 6px 10px; min-height: 34px; border: 1px solid #d9e1e4; border-radius: 6px; color: #345d6b; background-color: white; font: inherit; cursor: pointer; }
-.speed-control select, .word-action select, .passage-picker select {
+.speed-control select, .passage-picker select {
   appearance: none;
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2352616a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -82,9 +86,8 @@ svg.filled { fill: currentColor; }
   background-size: 14px 14px;
 }
 @media (forced-colors: active) {
-  .speed-control select, .word-action select, .passage-picker select { appearance: auto; background-image: none; }
+  .speed-control select, .passage-picker select { appearance: auto; background-image: none; }
 }
-.word-action select:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .highlight-control { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-left: 0; min-height: 36px; color: #52616a; font-size: 13px; cursor: pointer; }
 .highlight-switch { position: absolute; right: 34px; top: 50%; width: 40px; height: 24px; transform: translateY(-50%); margin: 0; opacity: 0; cursor: pointer; }
 .highlight-track { display: inline-flex; align-items: center; width: 40px; height: 24px; padding: 3px; border-radius: 12px; background: #87979e; transition: background .15s; }
@@ -112,15 +115,18 @@ footer span { margin-left: 18px; }
 .projector .article-layout { grid-template-columns: 1fr; max-width: 1000px; }
 .projector .passage { font-size: calc(28px * var(--reading-scale, 1)); }
 /* Color Focus keeps the page layout: same columns, sidebar and text size. The tint is a card lined
-   up with the player and settings cards above it; its negative vertical margins cancel its padding
-   so the passage starts and ends at the same height. */
-.color-focus .passage-frame { margin: -14px 0; padding: 14px 18px; border-radius: 10px; transition: background-color .3s; }
+   up with the console above it; its smaller margins cancel its padding so the passage starts and
+   ends at the same height. */
+.color-focus .passage-frame { margin: 4px 0 -14px; padding: 14px 18px; border-radius: 10px; transition: background-color .3s; }
 .color-focus .passage { text-align: left; }
 .color-focus .passage p:last-child { margin-bottom: 0; }
 .tint-blue { background: #dbe8f5; }
 .tint-green { background: #dcede2; }
 .tint-cream { background: #f5eed8; }
+/* No tint, so the usual white sentence highlight wouldn't show. Lives here because a scoped :global()
+   rule in PassageText compiles to the whole .tint-none frame. */
+.passage-frame.tint-none .current-sentence { background: #eceff0; box-shadow: 0 0 0 4px #eceff0; }
 /* Too narrow for one line: the time bar and Start over share their own row. */
-@media (max-width: 1140px) { .audio-player { border-radius: 18px; } .audio-progress { order: 1; flex-basis: calc(100% - 110px); } .audio-player .restart { order: 2; } }
-@media (max-width: 760px) { .site-header { padding: 10px 17px; } .brand img { width: 160px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } .color-focus .passage-frame { margin: -12px 0; padding: 12px 14px; } .part-break { font-size: 14px; padding-left: 12px; gap: 8px; } }
-@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .floating-actions, .word-action, .reading-settings { display: none; } .passage-frame { background: none !important; margin: 0 !important; padding: 0 !important; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }
+@media (max-width: 1120px) { .audio-progress { order: 1; flex-basis: calc(100% - 110px); } .audio-player .restart { order: 2; } }
+@media (max-width: 760px) { .site-header { padding: 10px 17px; } .brand img { width: 160px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .audio-console { padding: 8px; } .audio-console .audio-player { grid-column: 1 / -1; } .audio-console .settings-menu { grid-row: 2; } .console-options { grid-column: 1; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } .color-focus .passage-frame { margin: -12px 0; padding: 12px 14px; } .part-break { font-size: 14px; padding-left: 12px; gap: 8px; } }
+@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .floating-actions { display: none; } .passage-frame { background: none !important; margin: 0 !important; padding: 0 !important; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }

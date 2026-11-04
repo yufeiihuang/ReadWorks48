@@ -7,7 +7,7 @@ import ColorFocusPanel from './components/ColorFocusPanel.vue';
 import ReadingSettingsMenu from './components/ReadingSettingsMenu.vue';
 import readWorksLogo from './assets/readworks-logo.svg';
 import SpeedTip from './components/SpeedTip.vue';
-import { findActiveToken, findLastStartedToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
+import { findActiveToken, findLastStartedToken, findWordRange } from './lib/wordTiming.js';
 import { loadGeneratedPassage, loadLatestGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
 import { loadGradeId, suggestSpeed } from './lib/speedSuggestion.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
@@ -108,8 +108,6 @@ function resetReadingSettings() {
   dyslexiaFont.value = false;
   Object.assign(focus, colorFocusDefaults);
 }
-const wordAction = ref((() => { try { return localStorage.getItem('soundworks.wordAction') === 'say' ? 'say' : 'read'; } catch { return 'read'; } })());
-watch(wordAction, value => { try { localStorage.setItem('soundworks.wordAction', value); } catch {} });
 const canSelectWords = computed(() => !audioUnavailable.value && (passage.value?.timings?.length || 0) > 0);
 function replayWord(tokenId) {
   highlightDismissed.value = false;
@@ -126,29 +124,10 @@ async function sayWord(tokenId) {
   const range = findWordRange(passage.value?.timings || [], tokenId);
   if (range) player.playWord(range.start, range.end);
 }
-const selectWord = tokenId => (wordAction.value === 'say' ? sayWord(tokenId) : replayWord(tokenId));
+const canHearWord = tokenId => Boolean(wordClipUrl(passage.value, tokenId)
+  || Number.isFinite(passage.value?.timings?.find(item => item.tokenId === tokenId)?.startMs));
 function restartPassage() { noteJump(); resumeFollowing(); player.restart(); }
 function seekPassage(seconds) { noteJump(); resumeFollowing(); player.seek(seconds); }
-// Sentence replay needs word timings; without them a sentence cannot be located.
-const canReplaySentence = computed(() =>
-  !audioUnavailable.value
-  && (passage.value?.timings?.length || 0) > 0
-  && (passage.value?.tokens?.length || 0) > 0
-);
-// Seek to the start of the sentence at the current playback position, then keep
-// playing. Reuses the single audio controller via playFrom (seek + play), and
-// re-engages follow-along scrolling like the other transport controls.
-function replaySentence() {
-  if (!canReplaySentence.value) return;
-  const seconds = findSentenceStartSeconds(
-    [ ...(passage.value?.narrationTitle ? [passage.value.narrationTitle] : []), ...(passage.value?.paragraphs || []) ],
-    passage.value?.tokens || [],
-    passage.value?.timings || [],
-    player.state.currentTime,
-    player.state.duration,
-  );
-  if (Number.isFinite(seconds)) { noteJump(); resumeFollowing(); player.playFrom(seconds); }
-}
 const hasTimings = computed(() => Boolean(passage.value?.timings?.length));
 const hasIncompleteTimings = computed(() => Boolean(passage.value?.alignment?.needsReview));
 const isReference = computed(() => passage.value?.generation?.status === 'reference');
@@ -218,7 +197,7 @@ onMounted(async () => {
     <main v-else class="article-page">
       <section class="article-heading">
         <div class="heading-inner">
-          <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" @replay="selectWord" /></div>
+          <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :can-hear="canHearWord" @replay="replayWord" @hear="sayWord" /></div>
           <h1 v-else>{{ passage.title }}</h1>
           <div class="article-actions" aria-label="Passage actions">
             <button @click="openTeacher">Assign</button>
@@ -238,11 +217,9 @@ onMounted(async () => {
             :duration="player.state.duration"
             :volume="player.state.volume"
             :playback-rate="player.state.playbackRate"
-            :can-replay-sentence="canReplaySentence"
             :speed-tip-open="Boolean(speedSuggestion)"
             @toggle-play="player.toggle"
             @restart="restartPassage"
-            @replay-sentence="replaySentence"
             @seek="seekPassage"
             @volume-change="player.setVolume"
             @speed-change="changeSpeed"
@@ -250,11 +227,23 @@ onMounted(async () => {
             <template #speed-tip>
               <SpeedTip v-if="speedSuggestion" :question="speedSuggestion.question" :speed="speedSuggestion.speed" @accept="acceptSpeedSuggestion" @dismiss="answerSpeedTip" />
             </template>
-            <template #after>
+            <template #settings>
               <ReadingSettingsMenu @reset="resetReadingSettings">
                 <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" />
                 <ColorFocusPanel :settings="focus" :has-timings="canSelectWords" />
               </ReadingSettingsMenu>
+            </template>
+            <template #options>
+            <label v-if="hasTimings" class="highlight-control">
+              <span>Highlight</span>
+              <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
+              <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
+              <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+            </label>
+            <p v-if="focus.on && canSelectWords && focusParts.length > 1" class="part-progress">
+              <span>Part {{ currentPart + 1 }} of {{ focusParts.length }}</span>
+              <span v-if="focusParts.length <= 20" class="part-dots" aria-hidden="true"><i v-for="n in focusParts.length" :key="n" :class="{ done: n - 1 < currentPart, current: n - 1 === currentPart }"></i></span>
+            </p>
             </template>
           </AudioConsole>
           <!-- Screen-reader announcements that must not affect layout. The paragraph-pause
@@ -277,29 +266,8 @@ onMounted(async () => {
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
           <ReadingAppearance v-if="!audioAllowed" v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" />
-          <div class="reading-settings">
-            <label v-if="canSelectWords" class="word-action">
-              <span>Tap a word to</span>
-              <select v-model="wordAction" aria-label="Tap a word to">
-                <option value="read">Read from there</option>
-                <option value="say">Hear just that word</option>
-              </select>
-            </label>
-
-            <label v-if="audioAllowed && hasTimings" class="highlight-control">
-              <span>Highlight</span>
-              <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
-              <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
-              <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
-            </label>
-            <p v-if="focus.on && canSelectWords && focusParts.length > 1" class="part-progress">
-              <span>Part {{ currentPart + 1 }} of {{ focusParts.length }}</span>
-              <span v-if="focusParts.length <= 20" class="part-dots" aria-hidden="true"><i v-for="n in focusParts.length" :key="n" :class="{ done: n - 1 < currentPart, current: n - 1 === currentPart }"></i></span>
-            </p>
-
-          </div>
           <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
-            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
+            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :can-hear="canHearWord" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="replayWord" @hear="sayWord" />
           </div>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
