@@ -85,7 +85,7 @@ Polly bills audio and speech marks separately. `generation.requestCharacters` su
 
 On November 3, 2026, Stephen Neural was confirmed available in `us-west-2`. Local generation and the deployed Lambda both generated the 49-word original garden passage successfully. The published sample manifest is:
 
-https://d1381qenwhm2qw.cloudfront.net/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json
+https://d1381qenwhm2qw.cloudfront.net/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json
 
 On November 4, 2026, the demo was generated again with pipeline version 3, which adds a separate recording of each word for "Hear just that word". Its passage audio, words and timings are identical to the sample above. The reader now pins this version:
 
