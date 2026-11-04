@@ -290,11 +290,13 @@ onMounted(async () => {
           </div>
           <section v-show="tab === 'vocabulary'" id="panel-vocabulary" class="vocabulary-view" role="tabpanel" aria-labelledby="tab-vocabulary">
             <VocabularyActivity :words="official" :can-hear="canSelectWords" @hear="sayWord" />
-            <h2>Words to learn (official)</h2>
+            <h2>Passage words</h2>
+            <p class="vocabulary-description">Words to explore in this reading.</p>
             <p v-if="vocabularyStatus" role="status">{{ vocabularyStatus }}</p>
-            <p v-else-if="!official.length">This passage has no official word list.</p>
+            <p v-else-if="!official.length">This passage has no word list.</p>
             <VocabularyWord collapsible v-for="entry in official" :key="entry.tokenId" :entry="entry" :saved="isSaved(entry)" :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
-            <h2>My words (personal)</h2>
+            <h2>My words</h2>
+            <p class="vocabulary-description">Words you’ve saved.</p>
             <p v-if="!myWords.length">Add words with the star in a definition card.</p>
             <VocabularyWord collapsible v-for="entry in myWords" :key="entry.word" :entry="entry" saved :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
             <small><a href="https://simple.wiktionary.org/" target="_blank" rel="noopener">Definitions from Simple English Wiktionary (CC BY-SA 4.0)</a></small>

@@ -120,3 +120,5 @@ footer span { margin-left: 18px; }
 .vocabulary-view { padding: 20px 0; }
 .vocabulary-view .vocabulary-word { padding: 12px 0; border-bottom: 1px solid #dce5e8; }
 @media print { .definition-card, .vocabulary-view { display: none !important; } .passage-panel { display: block !important; } }
+
+.vocabulary-description { margin: -8px 0 16px; color: #64747d; font-size: 14px; line-height: 1.5; }
