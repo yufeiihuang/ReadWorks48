@@ -40,25 +40,25 @@ function formatTime(seconds) {
         <svg v-else viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z" /></svg>
       </button>
       <button
-        class="control-button restart has-tooltip"
+        class="control-button restart labeled-control"
         type="button"
         :disabled="disabled"
-        aria-label="Restart passage"
-        data-tooltip="Restart passage"
+        aria-label="Start over"
         @click="emit('restart')"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2 6M4 4v7h7" /></svg>
+        <span>Start over</span>
       </button>
       <button
         v-if="canReplaySentence"
-        class="control-button replay-sentence has-tooltip"
+        class="control-button replay-sentence labeled-control"
         type="button"
         :disabled="disabled"
-        aria-label="Replay current sentence"
-        data-tooltip="Replay current sentence"
+        aria-label="Replay sentence"
         @click="emit('replay-sentence')"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H6a3 3 0 0 0-3 3v1a3 3 0 0 0 3 3h3M12 4 8 7l4 3M15 17h3a3 3 0 0 0 3-3v-1a3 3 0 0 0-3-3h-3M12 20l4-3-4-3" /></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a8 8 0 1 1 2 6M4 4v7h7" /></svg>
+        <span>Replay sentence</span>
       </button>
       <span class="audio-time">{{ formatTime(safeCurrentTime) }} / {{ safeDuration ? formatTime(safeDuration) : '--:--' }}</span>
       <input
