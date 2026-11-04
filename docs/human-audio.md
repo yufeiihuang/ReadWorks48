@@ -30,7 +30,9 @@ The CDK stack adds a private Step Functions Standard workflow and two small Pyth
 3. The S3 notification starts the workflow. A task checks the source/audio hashes, reuses a cached transcript or starts one batch Transcribe job, then returns immediately.
 4. Step Functions waits 30 seconds between checks; Lambda does not sleep or stay running while Transcribe works. The execution has a 30-minute timeout.
 5. The task aligns the words, copies the original audio to an immutable generated version, writes timings/report/manifest, and updates `generated/PASSAGE_ID/current.json` only after all files succeed.
-6. Reload `/?passage=PASSAGE_ID` in the reader. The reader follows `current.json` before demo fallback pins, and CloudFront does not cache that mutable pointer. Recording files remain cached at their immutable URLs. An explicit local `?manifest=` preview still overrides the pointer.
+6. Reload `/?passage=PASSAGE_ID` in the reader. For a passage without a pinned manifest, the reader follows `current.json`, and CloudFront does not cache that mutable pointer. Recording files remain cached at their immutable URLs. An explicit local `?manifest=` preview still overrides the pointer.
+
+Pinned demo passages (`demo`, `park-caretaker`) keep their reviewed manifest even after a pointer is published, so a queued run cannot change a live demo. Add `&latest=1` to preview the newest published version of a pinned passage; if its pointer is missing, slow, or broken, that preview falls back to the pin. To promote it, update the pin in `apps/reader/src/App.vue`.
 
 The human event prefix is separate from the existing `passages/*.json` Polly trigger. **Do not upload human source JSON under `passages/`: that prefix synthesizes Polly narration.** Generated outputs, private recordings, and cached transcripts cannot trigger either source workflow. Choose one authoritative source prefix per passage ID; both pipelines publish that ID’s current pointer, so do not keep updating an old Polly source after switching the same ID to human audio.
 
@@ -99,7 +101,7 @@ The command writes `audio.mp3`, `manifest.json`, `timings.json`, and `alignment-
 http://127.0.0.1:5173/?passage=ID&manifest=/generated/ID/human-HASH/manifest.json
 ```
 
-The `manifest` query override is available only in development. The production reader uses the published completion pointer.
+The `manifest` query override is available only in development. The production reader uses the published completion pointer for unpinned passages, and `&latest=1` for pinned ones.
 
 Without `--transcript` or `--queue`, the original builder-run mode remains available: provide `--bucket` and the command waits for Transcribe (default maximum 600 seconds). Rerun to resume an in-progress job. `--publish-preview` explicitly uploads the immutable local version but does not change the current pointer. `--qa-verified` is opt-in; without it, the original recognition-confidence filtering remains in place.
 
