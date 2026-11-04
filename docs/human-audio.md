@@ -103,6 +103,8 @@ The `manifest` query override is available only in development. The production r
 
 Without `--transcript` or `--queue`, the original builder-run mode remains available: provide `--bucket` and the command waits for Transcribe (default maximum 600 seconds). Rerun to resume an in-progress job. `--publish-preview` explicitly uploads the immutable local version but does not change the current pointer. `--qa-verified` is opt-in; without it, the original recognition-confidence filtering remains in place.
 
+Install `generation/requirements.txt` before running the helper. Its Boto3 minimum supports the conditional S3 writes used to prevent stale pointer updates. Lambda uses the Boto3 SDK supplied by the Python 3.14 runtime.
+
 Other options: `--cached-only` (queue mode), `--profile`, `--region` (default `us-west-2`), `--confidence` (default `0.8`, a filter only in unverified mode), `--output`, and `--maximum-wait`.
 
 ## Cost and maintenance
