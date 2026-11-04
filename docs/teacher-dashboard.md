@@ -1,6 +1,6 @@
 # Teacher dashboard demo
 
-Open `/?view=teacher`, or choose **Assign** on a passage. Select a reading, choose With audio or Without audio, select students, optionally set a due date, and create the assignment. Add student names with the roster field. Assignment cards provide a reading link, Copy link, and Remove.
+Open `/?view=teacher`, or choose **Assign** on a passage. The demo uses a ReadWorks-style Class Admin shell with an **Assign** tab next to **Student Library**. Roster, Groups, Student Library, header navigation, and class/account controls are static demonstration content; only Assign supports the assignment workflow. Select a reading, choose With audio or Without audio, select students, optionally set a due date, and create the assignment. Add student names with the roster field. Assignment cards provide a reading link, Copy link, and Remove.
 
 This hackathon version stores the roster and assignments in this browser's local storage. It has four sample students initially. It does not send notifications, create student accounts, sync assignments across devices, or track reading completion. Share the link directly with the intended students. No student names are included in links.
 
