@@ -29,6 +29,7 @@ export function vocabularyRoutes(app, fetcher = fetch) {
       const product = await get(`https://s3.us-west-2.amazonaws.com/readworks-media-qa/data/p/${uuid}`);
       if (!product) return res.json([]);
       passage ||= toReaderPassage(product);
+      if (!passage) return res.json([]);
       // Unrecorded passages have no tokens yet; match the reader's fallback tokenizer.
       if (!passage.tokens?.length) passage.tokens = passage.paragraphs.flatMap(p => [...p.text.matchAll(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)].map(m => ({ id: `${p.id}-${m.index}`, paragraphId: p.id, text: m[0], start: m.index, end: m.index + m[0].length })));
       const result = mapOfficialWords(product, passage);

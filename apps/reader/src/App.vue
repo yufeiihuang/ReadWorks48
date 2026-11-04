@@ -90,7 +90,7 @@ function dismissWordSelection(event) {
 }
 // Space under the sticky console; capped so a tall console on small screens can't hide the band.
 const consoleInset = () => Math.min(Math.max(0, document.querySelector('.audio-toolbar')?.getBoundingClientRect().bottom ?? 0), window.innerHeight * 0.4);
-const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(highlightedTokenId, () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly || tab.value !== 'passage' });
+const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(computed(() => tab.value === 'passage' ? highlightedTokenId.value : null), () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly || tab.value !== 'passage' });
 // Color Focus: calm tint, reading guide, fewer distractions, and reading one paragraph at a time.
 const { settings: focus, parts: focusParts, currentPart, finishedPart, jumped: noteJump, keepGoing } = useColorFocus(passage, player);
 // The sentence highlight follows the last word spoken and stays on through pauses between words.
@@ -313,7 +313,7 @@ onMounted(async () => {
           <span class="part-done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>Part {{ finishedPart + 1 }} of {{ focusParts.length }} done</span>
           <span class="keep-going">Keep going<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg></span>
         </button>
-        <button v-if="highlightEnabled && !following && activeTokenId && wordPlacement !== 'visible'" type="button" class="follow-return" @click="resumeFollowing">
+        <button v-if="tab === 'passage' && highlightEnabled && !following && activeTokenId && wordPlacement !== 'visible'" type="button" class="follow-return" @click="resumeFollowing">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="wordPlacement === 'above'" d="M12 19V5M6 11l6-6 6 6"/><path v-else d="M12 5v14M6 13l6 6 6-6"/></svg>
           Back to where we're reading
         </button>

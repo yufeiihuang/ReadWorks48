@@ -47,11 +47,12 @@ export function useVocabulary(passage, passageId) {
     if (returnFocus && origin?.isConnected) origin.closest('.read-along-text')?.focus();
   }
   async function openCard({ tokenId, target, keyboard }) {
+    if (!target) return;
     keepCard();
     const version = ++request;
     origin = target;
     const rect = target.getBoundingClientRect();
-    cardStyle.value = { left: `${Math.max(8, Math.min(rect.left, window.innerWidth - 348))}px`, top: `${Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 360))}px` };
+    cardStyle.value = { left: `${Math.max(8, Math.min(rect.left, window.innerWidth - 348))}px`, top: `${Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - Math.min(440, window.innerHeight - 16) - 8))}px` };
     card.value = { ...wordContext(passage.value, tokenId), definition: 'Loading definition…', keyboard, unavailable: true };
     await nextTick();
     if (keyboard) cardElement.value?.focus();
