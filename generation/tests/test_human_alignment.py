@@ -63,6 +63,23 @@ class QaVerifiedAlignmentTests(unittest.TestCase):
     def align_qa(self, text, words):
         return align(passage(text), transcript(words), 'abc123', 'https://example.com/audio.mp3', qa_verified=True)
 
+    def test_qa_compounds_split_within_recorded_span(self):
+        for words, compound in [(['high','road'], 'highroad'), (['cross','walk'], 'crosswalk'), (['up','stairs'], 'upstairs')]:
+            text = 'We take the ' + ' '.join(words) + ' to the park.'
+            manifest, report = self.align_qa(text, ['We','take','the',compound,'to','the','park'])
+            self.assertEqual(report['coverage'], 1)
+            estimates = [t for t in manifest['timings'] if t['precision'] == 'estimated']
+            self.assertEqual(len(estimates), 2)
+            self.assertEqual(estimates[0]['endMs'], estimates[1]['startMs'])
+            self.assertEqual(estimates[0]['matchMethod'], 'qa-compound-split')
+            self.assertLess(estimates[0]['startMs'], estimates[1]['startMs'])
+            self.assertEqual(manifest['paragraphs'][0]['text'], text)
+
+    def test_unverified_compounds_are_not_guessed(self):
+        _, report = align(passage('We take the high road to the park.'),
+            transcript(['We','take','the','highroad','to','the','park']), 'hash','https://example.com/a.mp3')
+        self.assertEqual(len(report['uncertainWords']), 2)
+
     def test_qa_exact_matches_keep_real_times_even_with_low_asr_confidence(self):
         manifest, report = self.align_qa('The park is quiet.', [('The', .2), 'park', 'is', 'quiet'])
         self.assertEqual(report['coverage'], 1)

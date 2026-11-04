@@ -19,7 +19,7 @@ Eight exact matches with low ASR confidence and the recognition substitution `Wi
 
 Coverage measures how many displayed words have a timestamp, not independent acoustic timing accuracy. The source recording is the exact original MP3; SHA-256 verification prevents mismatching the cached transcript and audio bytes.
 
-The existing public demo remains at `https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker`. The improved QA result is a local review artifact until explicitly published; merging code does not transcribe or publish that copyrighted passage automatically.
+The improved QA preview is live at [the caretaker QA preview](https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker-qa). The earlier `park-caretaker` demo remains unchanged. The approved sample was explicitly queued after deployment; merging code does not automatically transcribe or publish passage content.
 
 ## Automatic AWS processing
 
@@ -30,7 +30,9 @@ The CDK stack adds a private Step Functions Standard workflow and two small Pyth
 3. The S3 notification starts the workflow. A task checks the source/audio hashes, reuses a cached transcript or starts one batch Transcribe job, then returns immediately.
 4. Step Functions waits 30 seconds between checks; Lambda does not sleep or stay running while Transcribe works. The execution has a 30-minute timeout.
 5. The task aligns the words, copies the original audio to an immutable generated version, writes timings/report/manifest, and updates `generated/PASSAGE_ID/current.json` only after all files succeed.
-6. Reload `/?passage=PASSAGE_ID` in the reader. The reader follows `current.json` before demo fallback pins, and CloudFront does not cache that mutable pointer. Recording files remain cached at their immutable URLs. An explicit local `?manifest=` preview still overrides the pointer.
+6. Reload `/?passage=PASSAGE_ID` in the reader. For a passage without a pinned manifest, the reader follows `current.json`, and CloudFront does not cache that mutable pointer. Recording files remain cached at their immutable URLs. An explicit local `?manifest=` preview still overrides the pointer.
+
+Pinned demo passages (`demo`, `park-caretaker`) keep their reviewed manifest even after a pointer is published, so a queued run cannot change a live demo. Add `&latest=1` to preview the newest published version of a pinned passage; if its pointer is missing, slow, or broken, that preview falls back to the pin. To promote it, update the pin in `apps/reader/src/App.vue`.
 
 The human event prefix is separate from the existing `passages/*.json` Polly trigger. **Do not upload human source JSON under `passages/`: that prefix synthesizes Polly narration.** Generated outputs, private recordings, and cached transcripts cannot trigger either source workflow. Choose one authoritative source prefix per passage ID; both pipelines publish that ID’s current pointer, so do not keep updating an old Polly source after switching the same ID to human audio.
 
@@ -99,7 +101,7 @@ The command writes `audio.mp3`, `manifest.json`, `timings.json`, and `alignment-
 http://127.0.0.1:5173/?passage=ID&manifest=/generated/ID/human-HASH/manifest.json
 ```
 
-The `manifest` query override is available only in development. The production reader uses the published completion pointer.
+The `manifest` query override is available only in development. The production reader uses the published completion pointer for unpinned passages, and `&latest=1` for pinned ones.
 
 Without `--transcript` or `--queue`, the original builder-run mode remains available: provide `--bucket` and the command waits for Transcribe (default maximum 600 seconds). Rerun to resume an in-progress job. `--publish-preview` explicitly uploads the immutable local version but does not change the current pointer. `--qa-verified` is opt-in; without it, the original recognition-confidence filtering remains in place.
 
@@ -113,7 +115,7 @@ Other options: `--cached-only` (queue mode), `--profile`, `--region` (default `u
 - Alignment assets: immutable version includes text/revision, attribution, recording hash, transcript contents, source URL, QA mode, and aligner version. Corrected transcript boundaries therefore get new URLs instead of overwriting cached timing files. The original MP3 is reused byte-for-byte; there is no Polly/ElevenLabs call in this workflow.
 - Private source/audio/transcript prefixes are not served by CloudFront. The public `generated/` assets must contain only approved demonstration/ReadWorks content. Do not commit full copyrighted source fixtures to GitHub.
 - Step Functions is billed per transition, with S3, Lambda, transcription, and delivery billed separately. Waiting avoids a paid Lambda invocation sitting idle for the transcription duration. There is no continuously running worker. Use a small representative batch before scaling.
-- The new workflow is tested locally with fake AWS clients and synthesized infrastructure. Real AWS transcription and workflow execution still need a sandbox smoke run after deployment; the cached local sample is not evidence of a new live Transcribe run.
+- The deployed workflow has passed two real S3-triggered cached-transcript executions, including a source revision update. First-time uncached job scheduling/polling is covered by unit tests and AWS permission checks; it has not yet been exercised with a new paid Transcribe job.
 
 Transcribe start permission uses the wildcard resource required by AWS, constrained to this bucket and the `human-transcripts/*` output prefix. Reading job status is restricted to the `soundworks-human-*` job names. See the [AWS authorization reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_transcribe.html).
 
@@ -128,3 +130,23 @@ npm test -w @soundworks/infra
 ```
 
 Tests cover QA/recognition confidence, bounded name recovery, introductions, repeated words, numeric phrases, UTF-16 offsets, invalid timestamps, cache reuse, actual audio hash checks, asynchronous polling, duplicate starts, failed jobs, source edits, concurrent pointer publication, and separate private source triggers. Browser verification checks click-to-seek and highlighting on the actual cached caretaker recording.
+
+## Verified AWS smoke run — November 4, 2026
+
+PR #17 deployed successfully through GitHub Actions to the existing workshop stack. A separate `park-caretaker-qa` source was queued with `qaVerified: true` and `cachedOnly: true`, using the approved original MP3 and its existing cached Transcribe result.
+
+- The S3 source upload started the Step Functions workflow and completed with `status: ready`.
+- Updating only the source revision from 1 to 2 triggered a second successful execution. It published a different immutable manifest and updated `current.json` without rebuilding the frontend.
+- Both versions contain 356 / 360 individually timed words. The four remaining words have missing/shared ASR boundaries.
+- The CloudFront-delivered MP3 SHA-256 matches the original recording. The completion pointer responds with `Cache-Control: no-cache,no-store`.
+- Browser playback reports 1:55 duration. Clicking the recovered `noise` token seeks the original recording and highlights that token correctly.
+- No new scoped Transcribe job existed after the first run. Both requests used the server-enforced cached-only guard, so no new transcription job was created.
+- The source, approved recording, cached transcript, report, and manifests stay outside GitHub. Temporary workshop credentials used for verification were removed afterward.
+
+Live preview: https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker-qa
+
+The production sample remains a timing-coverage preview, not a claim that acoustic boundary accuracy has been independently measured for every word. A future first-time-transcription smoke run should use a small approved recording and an explicitly accepted Transcribe charge.
+
+### Compound-word timestamps
+
+Aligner version 5 recovers QA-verified compounds when consecutive source words exactly concatenate to one transcription word between exact context anchors (for example, “high road” and “highroad”). The recorded span is divided in proportion to normalized character length. These boundaries are estimates, recorded as `precision: estimated`, `matchMethod: qa-compound-split`, and `estimatedTokenIds` in the alignment report; they are not presented as acoustically measured word boundaries. Introductions, mismatched spellings, unverified recordings, and missing words are not filled by this rule. The version bump makes cached transcripts realign without another transcription charge when the passage is queued again.

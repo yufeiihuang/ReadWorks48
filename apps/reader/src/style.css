@@ -111,19 +111,16 @@ footer span { margin-left: 18px; }
 .projector .site-header, .projector .details, .projector footer { display: none; }
 .projector .article-layout { grid-template-columns: 1fr; max-width: 1000px; }
 .projector .passage { font-size: calc(28px * var(--reading-scale, 1)); }
-/* Color Focus: one calm column, no sidebar, left-aligned text with more room between lines and words. */
-.color-focus .details { display: none; }
-.color-focus .article-layout { grid-template-columns: minmax(0, 1fr); max-width: 880px; }
-.color-focus .passage-frame { border-radius: 10px; padding: 24px 30px; transition: background-color .3s; }
-.color-focus .passage { max-width: 68ch; text-align: left; font-size: calc(19px * var(--reading-scale, 1)); line-height: 2; word-spacing: .12em; letter-spacing: .01em; }
-.color-focus .passage p { margin-bottom: 1.4em; }
+/* Color Focus keeps the page layout: same columns, sidebar and text size. The tint is a card lined
+   up with the player and settings cards above it; its negative vertical margins cancel its padding
+   so the passage starts and ends at the same height. */
+.color-focus .passage-frame { margin: -14px 0; padding: 14px 18px; border-radius: 10px; transition: background-color .3s; }
+.color-focus .passage { text-align: left; }
 .color-focus .passage p:last-child { margin-bottom: 0; }
 .tint-blue { background: #dbe8f5; }
 .tint-green { background: #dcede2; }
 .tint-cream { background: #f5eed8; }
-.color-focus.projector .passage { font-size: calc(28px * var(--reading-scale, 1)); max-width: none; }
 /* Too narrow for one line: the time bar and Start over share their own row. */
 @media (max-width: 1140px) { .audio-player { border-radius: 18px; } .audio-progress { order: 1; flex-basis: calc(100% - 110px); } .audio-player .restart { order: 2; } }
-@media (max-width: 760px) { .site-header { padding: 10px 17px; } .brand img { width: 160px; }
-.preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } .color-focus .passage-frame { padding: 16px 14px; } .color-focus .passage { font-size: calc(18px * var(--reading-scale, 1)); } .part-break { font-size: 14px; padding-left: 12px; gap: 8px; } }
-@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .floating-actions, .word-action, .reading-settings { display: none; } .passage-frame { background: none !important; padding: 0 !important; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }
+@media (max-width: 760px) { .site-header { padding: 10px 17px; } .brand img { width: 160px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } .color-focus .passage-frame { margin: -12px 0; padding: 12px 14px; } .part-break { font-size: 14px; padding-left: 12px; gap: 8px; } }
+@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .floating-actions, .word-action, .reading-settings { display: none; } .passage-frame { background: none !important; margin: 0 !important; padding: 0 !important; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }

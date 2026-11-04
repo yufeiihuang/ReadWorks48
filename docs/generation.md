@@ -33,7 +33,7 @@ python generation/generate.py 2b781dab-4521-40d2-a9b6-ad5f2bb0ba98 --bucket YOUR
 
 `generation/readworks.py` uses `uuid` as the passage id, maps `lang` `EN` to `en-US`, and splits `text` on line breaks into paragraphs. `revision` is always 1 because the input hash already detects text changes. Ebook-style passages, other languages, and passages whose `content` shows words that `text` lacks (other than figures and captions) stop with an error. The reader displays paragraph text only, so images and vocabulary markup from `content` aren't shown yet.
 
-Publishing also writes `generated/PASSAGE_ID/current.json`, including on a cache hit, which names the newest manifest. Open a passage at `/?passage=PASSAGE_ID`. If a ReadWorks passage hasn't been generated, the API reads its public product JSON and the reader shows the text with a message that audio isn't ready. Opening a passage never starts generation. The pointer is cached for 60 seconds, so a new version can take about a minute to appear. Versioned files never change.
+Publishing also writes `generated/PASSAGE_ID/current.json`, including on a cache hit, which names the newest manifest. Open a passage at `/?passage=PASSAGE_ID`. If a ReadWorks passage hasn't been generated, the API reads its public product JSON and the reader shows the text with a message that audio isn't ready. Opening a passage never starts generation. Neither CloudFront nor the reader caches the pointer, so a new version appears on the next reload. Pinned passages (see `pinnedManifests` in the reader) keep their reviewed version until the pin is updated. Versioned files never change.
 
 ## Output contract for the reader
 
@@ -85,7 +85,11 @@ Polly bills audio and speech marks separately. `generation.requestCharacters` su
 
 On November 3, 2026, Stephen Neural was confirmed available in `us-west-2`. Local generation and the deployed Lambda both generated the 49-word original garden passage successfully. The published sample manifest is:
 
-https://d1381qenwhm2qw.cloudfront.net/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json
+https://d1381qenwhm2qw.cloudfront.net/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json
+
+On November 4, 2026, the demo was generated again with pipeline version 3, which adds a separate recording of each word for "Hear just that word". Its passage audio, words and timings are identical to the sample above. The reader now pins this version:
+
+https://d1381qenwhm2qw.cloudfront.net/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json
 
 A separate 3,824-character input generated one recording with 630 word timings over two chunks. Local cache reuse was verified. Seven unit tests and three infrastructure tests passed. These are functional checks, not a measured perceptual timing or pronunciation score; listen to the samples before demo sign-off.
 
@@ -134,3 +138,9 @@ Verified in the sandbox on November 3, 2026:
 - The CLI with `--bucket` also reuses the shared S3 cache.
 - Blank-space clicks clear the highlight in the deployed reader; playback controls remain usable.
 - Seventeen Python tests, four infrastructure checks, and three timing tests pass.
+
+### Title narration
+
+New Polly recordings (pipeline version 4) read the title before the body, with a 150 ms boundary pause. `narrationTitle` stores the title text and reserved paragraph ID `__title__`; its words participate in the same tokens, timings, and isolated word clips as the body. Body paragraphs stay unchanged. The reader renders title words in the existing heading and supports highlighting, word replay, and sentence replay there. Legacy manifests and human recordings remain unchanged.
+
+After deploying this change, upload `shared/fixtures/demo.json` to `passages/demo.json` again. The pipeline version changes the cache identity, so the older recording is not reused. Verify `/generated/demo/current.json` points to a manifest with `narrationTitle`, preview with `/?passage=demo&latest=1`, and promote that immutable manifest in a separate PR by updating the demo pin in `apps/reader/src/App.vue`. Deploying code alone does not regenerate or replace the pinned recording.

@@ -66,7 +66,7 @@ class EndToEndTests(unittest.TestCase):
             s3, polly = FakeS3(), FakePolly()
             result = prepare(passage, tmp, polly, s3=s3, bucket='bucket')
             manifest = result['manifest']
-            paragraphs = {p['id']: p['text'] for p in manifest['paragraphs']}
+            paragraphs = {p['id']: p['text'] for p in [manifest['narrationTitle'], *manifest['paragraphs']]}
             for token in manifest['tokens']:
                 self.assertEqual(paragraphs[token['paragraphId']][token['start']:token['end']], token['text'])
             self.assertEqual(len(manifest['timings']), len(manifest['tokens']))

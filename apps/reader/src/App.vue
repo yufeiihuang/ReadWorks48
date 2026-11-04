@@ -16,8 +16,10 @@ import { colorFocusDefaults, useColorFocus } from './composables/useColorFocus.j
 // Playback test passage with ReadWorks' existing recording; open /?passage=pride-and-prejudice.
 // Loaded in the reader until the API passage routes (SW-10) serve more than the demo fixture.
 const referencePassages = { 'pride-and-prejudice': () => import('../../../shared/fixtures/pride-and-prejudice.json') };
+// Reviewed demo recordings. A published current.json never replaces these; ?latest=1 previews it
+// (falling back to the pin), and promoting it means updating the pin here.
 const pinnedManifests = {
-  demo: '/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json',
+  demo: '/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json',
   'park-caretaker': '/generated/park-caretaker/human-712a36cf65895354e6b551d5/manifest.json',
 };
 const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
@@ -137,7 +139,7 @@ const canReplaySentence = computed(() =>
 function replaySentence() {
   if (!canReplaySentence.value) return;
   const seconds = findSentenceStartSeconds(
-    passage.value?.paragraphs || [],
+    [ ...(passage.value?.narrationTitle ? [passage.value.narrationTitle] : []), ...(passage.value?.paragraphs || []) ],
     passage.value?.tokens || [],
     passage.value?.timings || [],
     player.state.currentTime,
@@ -176,8 +178,9 @@ watch(() => player.state.playing, playing => { if (playing) speedTipClosed.value
 async function loadPassage(id) {
   try {
     const preview = devManifest(id);
-    const manifest = preview ? await loadGeneratedPassage(id, preview)
-      : await loadLatestGeneratedPassage(id, pinnedManifests[id]);
+    const followLatest = !preview && new URLSearchParams(window.location.search).get('latest') === '1';
+    const manifest = followLatest ? await loadLatestGeneratedPassage(id, pinnedManifests[id])
+      : await loadGeneratedPassage(id, preview || pinnedManifests[id]);
     if (manifest) return manifest;
   } catch { generationWarning.value = 'Audio is temporarily unavailable. The passage is still available to read.'; }
   if (referencePassages[id]) return (await referencePassages[id]()).default;
@@ -213,7 +216,8 @@ onMounted(async () => {
     <main v-else class="article-page">
       <section class="article-heading">
         <div class="heading-inner">
-          <h1>{{ passage.title }}</h1>
+          <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" @replay="selectWord" /></div>
+          <h1 v-else>{{ passage.title }}</h1>
           <div class="article-actions" aria-label="Passage actions">
             <button disabled title="Assignments are not available in this preview">Assign</button>
             <button @click="printPassage">Print</button>
@@ -285,7 +289,7 @@ onMounted(async () => {
             </p>
           </div>
           <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
-            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
+            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
           </div>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
@@ -312,3 +316,8 @@ onMounted(async () => {
     <footer>ReadWorks SoundWorks <span>Hackathon reader preview</span></footer>
   </div>
 </template>
+
+<style scoped>
+.narrated-title { margin: 0 0 14px; }
+.narrated-title :deep(.read-along-text) { font-family: inherit; font-size: 29.75px; font-weight: 600; line-height: 1.25; text-align: left; }
+</style>
