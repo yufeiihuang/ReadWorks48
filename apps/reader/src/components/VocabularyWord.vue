@@ -8,7 +8,7 @@ defineEmits(['hear', 'toggle']);
     <em>{{ entry.partOfSpeech }}</em>
     <p>{{ entry.definition }}</p>
     <p class="word-sentence">{{ entry.before }}<strong>{{ entry.word }}</strong>{{ entry.after }}</p>
-    <div class="vocabulary-actions"><button :disabled="!canHear" @click="$emit('hear', entry.tokenId)">Hear it</button><button :aria-pressed="saved" @click="$emit('toggle', entry)">{{ saved ? '★ In My words' : '☆ Add to My words' }}</button></div>
+    <div class="vocabulary-actions"><button :disabled="!canHear" @click="$emit('hear', entry.tokenId)">Hear it</button><button :disabled="entry.unavailable" :aria-pressed="saved" @click="$emit('toggle', entry)">{{ saved ? '★ In My words' : '☆ Add to My words' }}</button></div>
     <small v-if="entry.source"><a :href="entry.source.url" target="_blank" rel="noopener">Definitions from {{ entry.source.name }} ({{ entry.source.license }})</a></small>
   </div>
 </template>

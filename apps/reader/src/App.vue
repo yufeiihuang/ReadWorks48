@@ -90,7 +90,7 @@ function dismissWordSelection(event) {
 }
 // Space under the sticky console; capped so a tall console on small screens can't hide the band.
 const consoleInset = () => Math.min(Math.max(0, document.querySelector('.audio-toolbar')?.getBoundingClientRect().bottom ?? 0), window.innerHeight * 0.4);
-const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(highlightedTokenId, () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly });
+const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(highlightedTokenId, () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly || tab.value !== 'passage' });
 // Color Focus: calm tint, reading guide, fewer distractions, and reading one paragraph at a time.
 const { settings: focus, parts: focusParts, currentPart, finishedPart, jumped: noteJump, keepGoing } = useColorFocus(passage, player);
 // The sentence highlight follows the last word spoken and stays on through pauses between words.

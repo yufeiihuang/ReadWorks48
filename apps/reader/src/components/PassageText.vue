@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, useId, onBeforeUnmount } from 'vue';
+import { computed, ref, useId, onBeforeUnmount, watch } from 'vue';
 import { definitionGesture } from '../lib/definitionGesture.js';
 import { nextWordIndex } from '../lib/wordCursor.js';
 import { splitSentences } from '../lib/readingParts.js';
@@ -44,13 +44,19 @@ const sentenceOfToken = computed(() => {
 const currentSentence = computed(() => (props.sentenceHighlight && props.readingTokenId ? sentenceOfToken.value.get(props.readingTokenId) : null));
 const gesture = definitionGesture(value => emit('define', value));
 onBeforeUnmount(gesture.cancel);
+watch(() => props.definitionsEnabled, enabled => { if (!enabled) gesture.cancel(); });
+let touchPointer = false;
+function pointerDown(event, token) {
+  touchPointer = event.pointerType === 'touch';
+  gesture.down(event, requestDefinition(token, event.currentTarget));
+}
 function requestDefinition(token, target, keyboard = false) { return { tokenId: token.id, target, keyboard }; }
 function enter(event, token) {
   if (event.pointerType === 'touch' || !props.definitionsEnabled) return;
   emit('word-enter');
   gesture.hover(requestDefinition(token, event.currentTarget));
 }
-function leave() { gesture.cancel(); emit('word-leave'); }
+function leave(event) { gesture.cancel(); if (event.pointerType !== 'touch') emit('word-leave'); }
 function select(token) {
   if (gesture.consumeClick()) return;
   if (!interactive.value) return;
@@ -61,6 +67,7 @@ function placeCursor() {
   cursorId.value = props.activeTokenId || cursorId.value || props.tokens[0]?.id || null;
 }
 function onKeydown(event) {
+  if (!interactive.value) return;
   const index = Math.max(0, props.tokens.findIndex(item => item.id === cursorId.value));
   if (event.key === 'Enter' && event.shiftKey) {
     event.preventDefault();
@@ -96,7 +103,7 @@ function onKeydown(event) {
     @focus="placeCursor"
     @keydown="onKeydown"
   >
-    <component :is="heading ? 'h1' : 'p'" v-for="paragraph in rendered" :key="paragraph.id" :class="{ 'current-part': paragraph.id === focusParagraphId }"><template v-for="(item, itemIndex) in paragraph.items" :key="item.parts ? `s-${item.key}` : `t-${itemIndex}`"><span v-if="item.parts" class="sentence" :class="{ 'current-sentence': currentSentence === `${paragraph.id}:${item.key}` }"><template v-for="(part, index) in item.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive, 'official-word': officialTokenIds.includes(part.id) }" @click="select(part)" @pointerenter="enter($event, part)" @pointerleave="leave" @pointerdown="gesture.down($event, requestDefinition(part, $event.currentTarget))" @pointermove="gesture.move" @pointerup="gesture.up" @pointercancel="gesture.up" @contextmenu=" $event.pointerType === 'touch' && $event.preventDefault()">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span><template v-else>{{ item.text }}</template></template></component>
+    <component :is="heading ? 'h1' : 'p'" v-for="paragraph in rendered" :key="paragraph.id" :class="{ 'current-part': paragraph.id === focusParagraphId }"><template v-for="(item, itemIndex) in paragraph.items" :key="item.parts ? `s-${item.key}` : `t-${itemIndex}`"><span v-if="item.parts" class="sentence" :class="{ 'current-sentence': currentSentence === `${paragraph.id}:${item.key}` }"><template v-for="(part, index) in item.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive, 'official-word': officialTokenIds.includes(part.id) }" @click="select(part)" @pointerenter="enter($event, part)" @pointerleave="leave" @pointerdown="pointerDown($event, part)" @pointermove="gesture.move" @pointerup="gesture.up" @pointercancel="gesture.up" @contextmenu="touchPointer && $event.preventDefault()">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span><template v-else>{{ item.text }}</template></template></component>
   </div>
   <p :id="instructionsId" hidden>Use the left and right arrow keys to choose a word, then press Enter to {{ selectAction }}. Press Shift+Enter for a definition. Escape closes the definition card.</p>
   <span class="sr-only" aria-live="polite">{{ announcement }}</span>

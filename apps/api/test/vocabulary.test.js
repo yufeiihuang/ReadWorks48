@@ -6,6 +6,7 @@ import { vocabularyRoutes } from '../vocabularyRoutes.js';
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status });
 test('parses learner senses, headings, labels and links without examples', () => {
   assert.deepEqual(parseWikitext("==Noun==\n# {{countable}} A [[seed|young seed]] with '''leaves'''.\n#: Example\n#* quotation\n===Verb===\n# To ''grow''."), { base: null, senses: [{ partOfSpeech: 'Noun', definition: 'A young seed with leaves.' }, { partOfSpeech: 'Verb', definition: 'To grow.' }] });
+  assert.equal(parseWikitext('==Verb==\n# {{past tense and participle of|walk}}').base, 'walk');
   assert.equal(cleanWiki('[[cold]] {{uncountable}}'), 'cold');
 });
 test('follows an inflection once, identifies requests and shares cached lookups', async () => {
