@@ -256,8 +256,11 @@ class NoOpGuardTests(unittest.TestCase):
         # via the normal text path -- no SSML request at all -- and record no
         # pronunciation on the manifest.
         item = passage('"Vroom!" went the car.')
-        detect = lambda t: [{'original': 'Vroom', 'start': t.index('Vroom'),
-                             'end': t.index('Vroom') + 5, 'pronunciation': 'vroom'}]
+        # detect is called once per narrated chunk (which may include the title);
+        # only suggest when the word is actually present, like real detection.
+        detect = lambda t: ([{'original': 'Vroom', 'start': t.index('Vroom'),
+                              'end': t.index('Vroom') + 5, 'pronunciation': 'vroom'}]
+                             if 'Vroom' in t else [])
         with tempfile.TemporaryDirectory() as tmp:
             polly = FakeSSMLPolly()
             manifest, _, _ = generate(item, tmp, polly, detect=detect, pronunciation_enabled=True)
@@ -275,8 +278,9 @@ class NoOpGuardTests(unittest.TestCase):
     def test_useful_correction_still_uses_ssml(self):
         # Contrast: a real correction DOES take the SSML path.
         item = passage('"Achoo!" she sneezed.')
-        detect = lambda t: [{'original': 'Achoo', 'start': t.index('Achoo'),
-                             'end': t.index('Achoo') + 5, 'pronunciation': 'ah-choo'}]
+        detect = lambda t: ([{'original': 'Achoo', 'start': t.index('Achoo'),
+                              'end': t.index('Achoo') + 5, 'pronunciation': 'ah-choo'}]
+                             if 'Achoo' in t else [])
         with tempfile.TemporaryDirectory() as tmp:
             polly = FakeSSMLPolly()
             manifest, _, _ = generate(item, tmp, polly, detect=detect, pronunciation_enabled=True)
@@ -372,11 +376,16 @@ class EndToEndTests(unittest.TestCase):
             self.assertFalse(cached)
             # Display text untouched.
             self.assertEqual(manifest['paragraphs'][0]['text'], item['paragraphs'][0]['text'])
-            # Every token offset indexes the display text and slices back to its word.
-            display = manifest['paragraphs'][0]['text']
+            # Every token offset indexes ITS OWN paragraph's text and slices back to
+            # its word. Resolve by paragraphId so this holds whether or not the
+            # pipeline also narrates the title paragraph (a separate feature).
+            para_text = {p['id']: p['text'] for p in manifest['paragraphs']}
+            if manifest.get('narrationTitle'):
+                para_text[manifest['narrationTitle']['id']] = manifest['narrationTitle']['text']
             for token in manifest['tokens']:
                 # start/end are UTF-16 units; for this ASCII text they equal indices
-                self.assertEqual(display[token['start']:token['end']], token['text'])
+                source = para_text[token['paragraphId']]
+                self.assertEqual(source[token['start']:token['end']], token['text'])
             # "Brrr" survived as a display token (not "burr").
             self.assertIn('Brrr', [t['text'] for t in manifest['tokens']])
             self.assertNotIn('burr', [t['text'] for t in manifest['tokens']])
