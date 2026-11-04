@@ -257,15 +257,20 @@ onMounted(async () => {
               </ReadingSettingsMenu>
             </template>
           </AudioConsole>
-          <span class="sr-only" role="status"><template v-if="speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template></span>
-          <p v-if="audioAllowed && (finishedPart !== null || generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings)" class="audio-status">
+          <!-- Screen-reader announcements that must not affect layout. The paragraph-pause
+               message lives here (not in the in-flow .audio-status) so showing/hiding it never
+               shifts the passage; the visible pause UI is the fixed-position "Keep going" button. -->
+          <span class="sr-only" role="status">
+            <template v-if="speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template>
+            <template v-else-if="finishedPart !== null">Part {{ finishedPart + 1 }} of {{ focusParts.length }} done. Select Keep going when you're ready.</template>
+          </span>
+          <p v-if="audioAllowed && (generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings)" class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
               <template v-else-if="player.state.status === 'empty'">Audio isn't ready for this passage yet. You can still read it.</template>
               <template v-else-if="player.state.status === 'error' || player.state.error">{{ player.state.error }}</template>
               <template v-else-if="player.state.status === 'loading'">Loading audio…</template>
               <template v-else-if="player.state.buffering">Buffering audio…</template>
-              <template v-else-if="finishedPart !== null">Part {{ finishedPart + 1 }} of {{ focusParts.length }} done. Select Keep going when you're ready.</template>
               <template v-else-if="hasIncompleteTimings">Some words are not available for highlighting.</template>
               <template v-else>Press play to listen. Word highlighting is not available for this passage.</template>
             </span>
