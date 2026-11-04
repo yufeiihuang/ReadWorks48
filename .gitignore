@@ -6,3 +6,6 @@ __pycache__/
 .env
 .DS_Store
 generation/output/
+# Local pronunciation audio samples from manual AWS tests (never commit)
+tmp-pronunciation-samples/
+*.wav
