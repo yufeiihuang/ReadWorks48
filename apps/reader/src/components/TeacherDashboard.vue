@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 const passages = [
   { id: 'demo', title: 'A Morning in the Garden', detail: 'A short story about discovery · 49 words' },
   { id: 'park-caretaker-qa', title: "Let’s Meet a Park Caretaker", detail: 'Community and nature · 360 words' },
-  { id: 'pride-and-prejudice', title: 'Excerpt from Pride and Prejudice', detail: 'Classic literature · Jane Austen' },
+  { id: 'pride-and-prejudice', title: 'Excerpt from Pride and Prejudice', detail: 'Classic literature · Jane Austen · 1,156 words' },
 ];
 function read(key, fallback) { try { const value = JSON.parse(localStorage.getItem(key)); return Array.isArray(value) ? value : fallback; } catch { return fallback; } }
 const roster = ref(read('soundworks.roster', ['Alex', 'Jordan', 'Sam', 'Taylor']));
