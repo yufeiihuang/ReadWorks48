@@ -299,7 +299,7 @@ onMounted(async () => {
             <p class="vocabulary-description">Words you’ve saved.</p>
             <p v-if="!myWords.length">Add words with the star in a definition card.</p>
             <VocabularyWord collapsible v-for="entry in myWords" :key="entry.word" :entry="entry" saved :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
-            <small><a href="https://simple.wiktionary.org/" target="_blank" rel="noopener">Definitions from Simple English Wiktionary (CC BY-SA 4.0)</a></small>
+            <small class="vocabulary-credit">Definitions from <a href="https://simple.wiktionary.org/" target="_blank" rel="noopener">Simple English Wiktionary</a> and <a href="https://en.wiktionary.org/" target="_blank" rel="noopener">English Wiktionary</a> (CC BY-SA 4.0).</small>
           </section>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
