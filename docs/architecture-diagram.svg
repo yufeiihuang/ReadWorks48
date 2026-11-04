@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="520" viewBox="0 0 680 520" role="img" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>SoundWorks architecture as built</title>
+  <desc>A Vue reader in the browser loads everything from one CloudFront origin, which routes to an S3 website bucket, an Express API on Lambda behind an HTTP API, and an S3 passage-assets bucket. A Python generation Lambda uses Amazon Polly Neural to write audio, word timings and word clips into the assets bucket. A human-recording path using Step Functions and Transcribe also writes there; it runs live with a cached transcript, but a first new Transcribe job is untested. GitHub Actions deploys the CDK stack through an OIDC role on merge to main.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .gray rect { fill: #F1EFE8; stroke: #5F5E5A; }
+      .teal rect { fill: #E1F5EE; stroke: #0F6E56; }
+      .amber rect { fill: #FAEEDA; stroke: #854F0B; }
+      .gray .h { fill: #2C2C2A; } .gray .s { fill: #5F5E5A; }
+      .teal .h { fill: #04342C; } .teal .s { fill: #0F6E56; }
+      .amber .h { fill: #412402; } .amber .s { fill: #854F0B; }
+      .h { font-size: 14px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+      .s { font-size: 12px; text-anchor: middle; dominant-baseline: central; }
+      .arr { stroke: #5F5E5A; stroke-width: 1.2; fill: none; }
+      .legend { font-size: 12px; fill: #444441; dominant-baseline: central; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="680" height="520" fill="#FFFFFF"/>
+
+  <g class="gray"><rect x="40" y="40" width="180" height="56" rx="8" stroke-width="0.8"/><text class="h" x="130" y="59">Vue reader</text><text class="s" x="130" y="78">Student's browser</text></g>
+  <g class="teal"><rect x="250" y="40" width="180" height="56" rx="8" stroke-width="0.8"/><text class="h" x="340" y="59">CloudFront</text><text class="s" x="340" y="78">One HTTPS origin</text></g>
+  <line x1="220" y1="68" x2="248" y2="68" class="arr" marker-end="url(#arrow)"/>
+
+  <path d="M290 96 L290 120 L130 120 L130 146" class="arr" marker-end="url(#arrow)"/>
+  <line x1="340" y1="96" x2="340" y2="146" class="arr" marker-end="url(#arrow)"/>
+  <path d="M390 96 L390 120 L550 120 L550 146" class="arr" marker-end="url(#arrow)"/>
+
+  <g class="teal"><rect x="40" y="148" width="180" height="72" rx="8" stroke-width="0.8"/><text class="h" x="130" y="168">Reader website</text><text class="s" x="130" y="189">S3, serves /*</text><text class="s" x="130" y="205">Vue build</text></g>
+  <g class="teal"><rect x="250" y="148" width="180" height="72" rx="8" stroke-width="0.8"/><text class="h" x="340" y="168">Express on Lambda</text><text class="s" x="340" y="189">HTTP API, /api/*</text><text class="s" x="340" y="205">reads ReadWorks JSON</text></g>
+  <g class="teal"><rect x="460" y="148" width="180" height="72" rx="8" stroke-width="0.8"/><text class="h" x="550" y="168">Passage assets</text><text class="s" x="550" y="189">S3, /generated/*</text><text class="s" x="550" y="205">audio, timings, clips</text></g>
+
+  <g class="teal"><rect x="40" y="280" width="180" height="72" rx="8" stroke-width="0.8"/><text class="h" x="130" y="300">Amazon Polly</text><text class="s" x="130" y="321">Neural voice</text><text class="s" x="130" y="337">audio + speech marks</text></g>
+  <line x1="222" y1="316" x2="248" y2="316" class="arr" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <g class="teal"><rect x="250" y="280" width="180" height="72" rx="8" stroke-width="0.8"/><text class="h" x="340" y="300">Python generation</text><text class="s" x="340" y="321">Lambda + CLI</text><text class="s" x="340" y="337">caches, then publishes</text></g>
+  <path d="M340 280 L340 250 L520 250 L520 222" class="arr" marker-end="url(#arrow)"/>
+  <g class="amber"><rect x="460" y="280" width="180" height="72" rx="8" stroke-width="0.8"/><text class="h" x="550" y="300">Human recordings</text><text class="s" x="550" y="321">Step Functions</text><text class="s" x="550" y="337">+ Transcribe timing</text></g>
+  <line x1="590" y1="280" x2="590" y2="224" class="arr" marker-end="url(#arrow)"/>
+
+  <g class="gray"><rect x="40" y="400" width="180" height="56" rx="8" stroke-width="0.8"/><text class="h" x="130" y="419">GitHub Actions</text><text class="s" x="130" y="438">Tests on every PR</text></g>
+  <line x1="220" y1="428" x2="248" y2="428" class="arr" marker-end="url(#arrow)"/>
+  <g class="teal"><rect x="250" y="400" width="180" height="56" rx="8" stroke-width="0.8"/><text class="h" x="340" y="419">OIDC role</text><text class="s" x="340" y="438">Trusts main only</text></g>
+  <line x1="430" y1="428" x2="458" y2="428" class="arr" marker-end="url(#arrow)"/>
+  <g class="teal"><rect x="460" y="400" width="180" height="56" rx="8" stroke-width="0.8"/><text class="h" x="550" y="419">CDK deploy</text><text class="s" x="550" y="438">Stack + smoke test</text></g>
+
+  <g class="gray"><rect x="40" y="482" width="14" height="14" rx="3" stroke-width="0.8"/></g><text class="legend" x="62" y="489">Outside AWS</text>
+  <g class="teal"><rect x="170" y="482" width="14" height="14" rx="3" stroke-width="0.8"/></g><text class="legend" x="192" y="489">AWS, live</text>
+  <g class="amber"><rect x="280" y="482" width="14" height="14" rx="3" stroke-width="0.8"/></g><text class="legend" x="302" y="489">In progress: first new Transcribe job untested</text>
+</svg>
