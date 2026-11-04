@@ -144,9 +144,6 @@ onMounted(async () => {
             :volume="player.state.volume"
             :playback-rate="player.state.playbackRate"
             :can-replay-sentence="canReplaySentence"
-            :can-highlight="hasTimings"
-            :highlight-enabled="highlightEnabled"
-            @toggle-highlighting="toggleHighlighting"
             @toggle-play="player.toggle"
             @restart="restartPassage"
             @replay-sentence="replaySentence"
@@ -167,11 +164,14 @@ onMounted(async () => {
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
-          <fieldset v-if="canSelectWords" class="word-action">
-            <legend>Tap a word to</legend>
-            <label :class="{ selected: wordAction === 'read' }"><input v-model="wordAction" type="radio" name="word-action" value="read">Read from there</label>
-            <label :class="{ selected: wordAction === 'say' }"><input v-model="wordAction" type="radio" name="word-action" value="say">Hear just that word</label>
-          </fieldset>
+          <div v-if="canSelectWords || hasTimings" class="reading-options" aria-label="Reading options">
+            <fieldset v-if="canSelectWords" class="word-action">
+              <legend>Tap a word to</legend>
+              <label :class="{ selected: wordAction === 'read' }"><input v-model="wordAction" type="radio" name="word-action" value="read">Read from there</label>
+              <label :class="{ selected: wordAction === 'say' }"><input v-model="wordAction" type="radio" name="word-action" value="say">Hear just that word</label>
+            </fieldset>
+            <button v-if="hasTimings" class="highlight-toggle" type="button" :aria-pressed="highlightEnabled" @click="toggleHighlighting">Highlight {{ highlightEnabled ? 'on' : 'off' }}</button>
+          </div>
           <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" @replay="selectWord" />
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>

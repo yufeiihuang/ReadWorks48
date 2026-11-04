@@ -48,6 +48,11 @@ svg.filled { fill: currentColor; }
 .word-action label.selected { background: var(--teal); border-color: var(--teal); color: white; }
 .word-action input { position: absolute; opacity: 0; pointer-events: none; }
 .word-action label:has(input:focus-visible) { outline: 3px solid #db9d22; outline-offset: 2px; }
+.reading-options { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: -16px 14px 24px; }
+.reading-options .word-action { margin: 0; }
+.highlight-toggle { margin-left: auto; border: 1px solid #bacbd1; border-radius: 18px; min-height: 36px; padding: 6px 14px; background: white; color: #345d6b; font-size: 13px; white-space: nowrap; }
+.highlight-toggle[aria-pressed="true"] { background: #e0edf1; border-color: #347b91; }
+.highlight-toggle:hover { background: #d5e6ec; }
 .passage { font-size: 17px; color: #202529; line-height: 1.8; text-align: justify; }
 .passage p { margin: 0 0 24px; }
 .passage-credit { border-top: 1px solid #edf0f0; padding-top: 20px; color: #74808a; font-size: 12px; margin-top: 40px; }
@@ -67,4 +72,4 @@ footer span { margin-left: 18px; }
 .projector .passage { font-size: 28px; }
 @media (max-width: 950px) { .audio-player { border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } }
 @media (max-width: 760px) { .site-header { padding: 18px 17px; } .brand { font-size: 27px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .audio-player { flex-wrap: wrap; border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } }
-@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .follow-return, .word-action { display: none; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }
+@media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .follow-return, .word-action, .reading-options { display: none; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }
