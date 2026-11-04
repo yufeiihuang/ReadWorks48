@@ -38,7 +38,7 @@ For slides: [architecture-diagram.svg](architecture-diagram.svg), or [architectu
 ### Talking points (60 s)
 
 - **One origin.** The reader, the API and the audio all come from one CloudFront address. That means no cross-origin setup, and every bucket stays private behind origin access control.
-- **Audio is prepared once, never per student.** Uploading a passage's JSON to `passages/` triggers a Python Lambda (or the team runs `generation/generate.py`). It asks Polly Neural for the audio, then separately for word "speech marks" (when each word starts). It also records each unique word on its own for "Hear just that word". Long passages are split under Polly's 3,000-character limit and stitched back together, with timings shifted to match.
+- **Audio is prepared once, never per student.** Uploading a passage's JSON to `passages/` triggers a Python Lambda (or the team runs `generation/generate.py`). It asks Polly Neural for the audio, then separately for word "speech marks" (when each word starts). It also records each unique word on its own for "Hear this word". Long passages are split under Polly's 3,000-character limit and stitched back together, with timings shifted to match.
 - **Cache first.** Before calling Polly, it checks a cache keyed on the text and settings, so an unchanged passage costs nothing. Files are published audio first and manifest last, then a `current.json` pointer switches. A student never gets audio and timings from different versions.
 - **The reader runs on one audio clock.** Every control (play, seek, speed, tap a word, replay sentence) drives one audio element. The highlight is computed from its current time, so it stays right through seeks and speed changes.
 - **Human recordings keep their voice.** We don't re-voice the 36% of passages that have a human narrator. Amazon Transcribe finds when each word is spoken, and we match that to ReadWorks' approved text; words we can't time are left unhighlighted rather than guessed. Step Functions waits between checks, so no Lambda sits idle while Transcribe works. *In progress:* the workflow ran live in AWS on Nov 4 and published the caretaker passage, but both runs reused an already-saved transcript. A brand-new (paid) Transcribe job hasn't been run yet.
@@ -53,7 +53,7 @@ Details: [architecture](architecture.md) · [generation](generation.md) · [huma
 ### Before going on stage
 
 - [ ] **No writes to the demo passages until after the finals.** Since PR #17, a published `current.json` pointer outranks the pinned demo recordings. Running `generate.py --bucket` for `demo`, or queueing `park-caretaker` or `park-caretaker-qa`, changes the live demo at once, and redeploying the site doesn't undo it. If someone regenerates `demo` tonight to add word clips, walk the whole script again afterwards.
-- [ ] Presentation laptop, **Chrome**, a **fresh Guest or Incognito window**. The site remembers settings per browser: the speed tip appears only the first time, and Color Focus, text size, font, Highlight and "Tap a word to" stay as you left them.
+- [ ] Presentation laptop, **Chrome**, a **fresh Guest or Incognito window**. The site remembers settings per browser: the speed tip appears only the first time, and Color Focus, text size, font and Highlight stay as you left them.
 - [ ] Sound through the room speakers; test the volume with the first sentence.
 - [ ] Browser zoom about 125% so the back row can read it.
 - [ ] Tab 1 on https://d1381qenwhm2qw.cloudfront.net ("A Morning in the Garden"). **Don't open the caretaker passage yet**: step 8 opens it so the speed tip appears.
@@ -66,8 +66,8 @@ Details: [architecture](architecture.md) · [generation](generation.md) · [huma
 |---|---|---|---|
 | 1 | 0:00 | Press **Play**. Let paragraph 1 play. | "A natural neural voice reads the passage, and every word lights up as it's spoken." |
 | 2 | 0:20 | Tap **"bird"**. | "Lost your place? Tap any word and it reads from there." |
-| 3 | 0:35 | In the middle of "Then the sun appeared…", press **Replay sentence**. Let "Brrr!" go by. | "Replay sentence goes back to the start of the sentence you're on." If anyone reacts to "Brrr!": "Sound words like that are a known weak spot for the voice. It's on our limits list." |
-| 4 | 0:55 | Pause. Set **Tap a word to → Hear just that word**. Tap **"sunrise"**. | "For decoding practice, a student can hear one word on its own. The passage waits where it was." |
+| 3 | 0:35 | Keep listening through "Then the sun appeared…" and let "Brrr!" go by. | If anyone reacts to "Brrr!": "Sound words like that are a known weak spot for the voice. It's on our limits list." |
+| 4 | 0:55 | Pause. Hover over **"sunrise"** and click **Hear this word**. | "For decoding practice, a student can hear one word on its own. The passage waits where it was." |
 | 5 | 1:15 | Click the **Highlight** switch off, then on. Press **Tab** once (an amber outline shows focus is on the passage), press **→** a few times, then **Enter**. | "Students who find the moving highlight distracting can turn it off. Everything works from the keyboard: arrow keys move word by word, screen readers announce each one, and Enter reads from there. Screen readers hear the passage as normal sentences, not 49 separate buttons." |
 | 6 | 1:45 | Click the round **Aa** button beside the audio bar. Text size: the biggest **Aa**. **Dyslexia font** on. Click **Done**, then press **Start over**. | "Larger text and a dyslexia-friendly font. The page scrolls by itself to keep the spoken word in view, and the audio bar stays on top." |
 | 7 | 2:15 | Open **Aa** again. Text size back to the second **Aa** (100%), Dyslexia font off. Turn on the **Color Focus** switch and click **Cream**. Click **Done**, then press **Start over**. When it stops after paragraph 1, click **Keep going**. | "Color Focus is for students with attention difficulties. It puts a soft tint behind the passage, highlights the sentence being read, dims other paragraphs, and stops after each paragraph so they can take a breath. 'Part 1 of 2 done.' The student decides when to keep going. Tints include blue, green and cream." |
@@ -79,7 +79,7 @@ Details: [architecture](architecture.md) · [generation](generation.md) · [huma
 **If something goes wrong**
 
 - No speed tip in step 8: this browser has already answered it, or Play was pressed first. Open a new Guest window, or skip it and say "first-time visitors get a grade-based speed tip."
-- "Hear just that word" catches the start of the next word: "That's why we now record each word separately; this demo recording predates that."
+- "Hear this word" catches the start of the next word: "That's why we now record each word separately; this demo recording predates that."
 - The page doesn't scroll in step 6 on a big screen (the whole passage fits): drop the scrolling line, or point it out during step 8.
 - The text shows but says "Audio is temporarily unavailable", or there's no sound at all: reload once, then switch to the backup recording.
 
@@ -104,7 +104,7 @@ Keep these caveats ready but don't lead with them. The $640 doesn't count per-wo
 
 ## 5. Known limits (say them before a judge does)
 
-1. **The live demo recording predates per-word clips.** "Hear just that word" on it cuts the word out of the passage recording. Per-word clips are built and merged (PR #13); they appear once someone with AWS access regenerates the demo passage, which is one command.
+1. **The live demo recording predates per-word clips.** "Hear this word" on it cuts the word out of the passage recording. Per-word clips are built and merged (PR #13); they appear once someone with AWS access regenerates the demo passage, which is one command.
 2. **"Brrr!" sounds robotic.** Sound words are a known weak spot for Polly Neural.
 3. **Human-recording automation is still in progress.** It runs live in AWS, but only with an already-saved transcript so far; a first new Transcribe job hasn't been tried. In the caretaker passage, 4 of 360 words aren't highlighted because Transcribe merged or skipped them.
 4. **Single words use their dictionary pronunciation,** so homographs like "read" and "live" can come out wrong.
@@ -130,7 +130,7 @@ Keep these caveats ready but don't lead with them. The $640 doesn't count per-wo
 Every step in the script worked on the live site after PR #17 deployed:
 
 - play, word highlighting, follow-along scrolling and "Back to where we're reading"
-- Read from there, Replay sentence, and Hear just that word (it pauses in place)
+- Read from there and Hear this word (it pauses in place)
 - the Highlight switch, text size and the dyslexia font
 - Color Focus: tints, sentence highlight, dimming, the pause after each paragraph, and Keep going
 - the speed tip on `park-caretaker-qa`
@@ -141,6 +141,6 @@ Playback and highlighting were checked through the page's state, not by ear, so 
 
 - **The speed tip never appears on the default demo passage,** because it has no grade. Use `?passage=park-caretaker-qa` (1st grade → 0.5×). The older `?passage=park-caretaker` also works but highlights only 347 of 360 words.
 - **The speed tip appears once per browser and closes as soon as you press Play.** Show it before playing, in a fresh window.
-- **"Hear just that word" on the demo** slices the passage recording, because it has no per-word clips yet. A word followed by a pause, such as "sunrise." or "can.", should cut most cleanly; check by ear.
+- **"Hear this word" on the demo** slices the passage recording, because it has no per-word clips yet. A word followed by a pause, such as "sunrise." or "can.", should cut most cleanly; check by ear.
 - **Justified text at 175–200%** leaves big gaps between words (`apps/reader/src/style.css`, `.passage { text-align: justify }`). It's cosmetic, but left-aligned text is usually easier for dyslexic readers.
 - **During the Color Focus pause, the next paragraph's first word is already highlighted.** That's intended: it marks where Keep going will start.

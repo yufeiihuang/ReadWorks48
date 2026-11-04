@@ -43,7 +43,7 @@ Publishing also writes `generated/PASSAGE_ID/current.json`, including on a cache
 - `speech-marks.json`: raw provider marks and chunk offsets for troubleshooting.
 - `wordAudio` (in the manifest): `{baseUrl, format, voice, engine, clips}`, where `clips` maps every token id to a word clip id. The clip is `baseUrl + id + '.mp3'`.
 
-## Word clips for "Hear just that word"
+## Word clips for "Hear this word"
 
 Slicing a word out of the passage recording can't be clean. Neural speech runs words together, and Polly marks only word starts, so the next word's first sound leaks in (QA-1). Instead, each unique word is also synthesized on its own (same voice, Neural, MP3) and stored at `generated/words/VOICE/CLIP_ID.mp3`.
 
@@ -87,7 +87,7 @@ On November 3, 2026, Stephen Neural was confirmed available in `us-west-2`. Loca
 
 https://d1381qenwhm2qw.cloudfront.net/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json
 
-On November 4, 2026, the demo was generated again with pipeline version 3, which adds a separate recording of each word for "Hear just that word". Its passage audio, words and timings are identical to the sample above. The reader now pins this version:
+On November 4, 2026, the demo was generated again with pipeline version 3, which adds a separate recording of each word for "Hear this word". Its passage audio, words and timings are identical to the sample above. The reader now pins this version:
 
 https://d1381qenwhm2qw.cloudfront.net/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json
 
@@ -141,6 +141,6 @@ Verified in the sandbox on November 3, 2026:
 
 ### Title narration
 
-New Polly recordings (pipeline version 4) read the title before the body, with a 150 ms boundary pause. `narrationTitle` stores the title text and reserved paragraph ID `__title__`; its words participate in the same tokens, timings, and isolated word clips as the body. Body paragraphs stay unchanged. The reader renders title words in the existing heading and supports highlighting, word replay, and sentence replay there. Legacy manifests and human recordings remain unchanged.
+New Polly recordings (pipeline version 4) read the title before the body, with a 150 ms boundary pause. `narrationTitle` stores the title text and reserved paragraph ID `__title__`; its words participate in the same tokens, timings, and isolated word clips as the body. Body paragraphs stay unchanged. The reader renders title words in the existing heading and supports highlighting and word replay there. Legacy manifests and human recordings remain unchanged.
 
 After deploying this change, upload `shared/fixtures/demo.json` to `passages/demo.json` again. The pipeline version changes the cache identity, so the older recording is not reused. Verify `/generated/demo/current.json` points to a manifest with `narrationTitle`, preview with `/?passage=demo&latest=1`, and promote that immutable manifest in a separate PR by updating the demo pin in `apps/reader/src/App.vue`. Deploying code alone does not regenerate or replace the pinned recording.

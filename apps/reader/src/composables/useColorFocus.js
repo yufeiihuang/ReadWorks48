@@ -17,8 +17,8 @@ function loadSettings() {
 
 // Color Focus settings (remembered per browser) and reading in parts. With pauseParts on, playback
 // stops where the next paragraph begins and waits for keepGoing(). Only playback reaching that
-// point by itself counts: call jumped() before a student's own seek (word, restart, sentence
-// replay, progress bar) so moving across a paragraph never reads as finishing one.
+// point by itself counts: call jumped() before a student's own seek (word, restart, progress
+// bar) so moving across a paragraph never reads as finishing one.
 export function useColorFocus(passage, player) {
   const settings = reactive(loadSettings());
   watch(settings, value => { try { localStorage.setItem(storageKey, JSON.stringify(value)); } catch {} });
