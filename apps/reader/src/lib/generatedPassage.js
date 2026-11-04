@@ -23,3 +23,13 @@ export async function loadGeneratedPassage(id, pinnedUrl, fetcher = (...args) =>
   if (typeof manifestUrl !== 'string' || !manifestUrl.startsWith(`/generated/${id}/`)) throw new Error('Invalid passage pointer');
   return fetchManifest(manifestUrl, fetcher);
 }
+
+// URL of the separately recorded clip for one word, or null when the passage has none
+// (older recordings and human narration fall back to slicing the passage audio).
+export function wordClipUrl(manifest, tokenId) {
+  const words = manifest?.wordAudio;
+  const id = words?.clips?.[tokenId];
+  if (typeof words?.baseUrl !== 'string' || !words.baseUrl.startsWith('/generated/words/')) return null;
+  if (typeof id !== 'string' || !/^[a-f0-9]{20}$/.test(id)) return null;
+  return `${words.baseUrl}${id}.mp3`;
+}

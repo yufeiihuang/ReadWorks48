@@ -4,7 +4,7 @@ import tempfile
 import unittest
 import wave
 from pathlib import Path
-from pipeline import chunks, generate, map_marks, validate_passage
+from pipeline import chunks, generate, map_marks, validate_passage, word_clip_id, word_key
 
 
 def passage(text='Hello again. Hello world.'):
@@ -67,7 +67,8 @@ class PipelineTests(unittest.TestCase):
             self.assertFalse(cached)
             self.assertGreater(manifest['generation']['chunkCount'], 1)
             self.assertEqual(len(manifest['tokens']), 600)
-            for audio_call, mark_call in zip(client.calls[::2], client.calls[1::2]):
+            passage_calls = [c for c in client.calls if c['OutputFormat'] != 'mp3']
+            for audio_call, mark_call in zip(passage_calls[::2], passage_calls[1::2]):
                 for setting in ('Text', 'TextType', 'VoiceId', 'Engine', 'LanguageCode'):
                     self.assertEqual(audio_call[setting], mark_call[setting])
                 self.assertEqual(audio_call['VoiceId'], 'Stephen')
@@ -84,6 +85,39 @@ class PipelineTests(unittest.TestCase):
             (directory / 'audio.wav').write_bytes(b'broken')
             _, _, cached = generate(item, tmp, client)
             self.assertFalse(cached)
+
+    def test_each_unique_word_gets_one_isolated_clip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = FakePolly()
+            manifest, _, _ = generate(passage('Hello again. hello US us.'), tmp, client)
+            words = [c['Text'] for c in client.calls if c['OutputFormat'] == 'mp3']
+            # "Hello"/"hello" share a clip; "US" stays separate from "us".
+            self.assertEqual(sorted(words), ['US', 'again', 'hello', 'us'])
+            for call in client.calls:
+                self.assertEqual((call['VoiceId'], call['Engine']), ('Stephen', 'neural'))
+            audio = manifest['wordAudio']
+            self.assertEqual(audio['baseUrl'], '/generated/words/Stephen/')
+            self.assertEqual(set(audio['clips']), {t['id'] for t in manifest['tokens']})
+            self.assertEqual(audio['clips']['w0'], audio['clips']['w2'])
+            for clip_id in audio['clips'].values():
+                self.assertTrue((Path(tmp) / 'generated/words/Stephen' / f'{clip_id}.mp3').stat().st_size > 0)
+            self.assertEqual(manifest['generation']['wordClipCount'], 4)
+            self.assertEqual(manifest['generation']['wordRequestCharacters'], 5 + 5 + 2 + 2)
+
+    def test_word_clips_are_shared_between_passages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            generate(passage('Hello world.'), tmp, FakePolly())
+            client = FakePolly()
+            other = passage('World, hello friend.')
+            other['id'] = 'other'
+            generate(other, tmp, client)
+            self.assertEqual([c['Text'] for c in client.calls if c['OutputFormat'] == 'mp3'], ['friend'])
+
+    def test_word_clip_identity(self):
+        self.assertEqual(word_key('Garden'), 'garden')
+        self.assertEqual(word_key('NASA'), 'NASA')
+        self.assertEqual(word_clip_id('The', 'Stephen', 'en-US'), word_clip_id('the', 'Stephen', 'en-US'))
+        self.assertNotEqual(word_clip_id('the', 'Stephen', 'en-US'), word_clip_id('the', 'Joanna', 'en-US'))
 
     def test_revision_changes_asset_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
