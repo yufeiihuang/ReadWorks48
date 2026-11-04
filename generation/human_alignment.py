@@ -9,7 +9,7 @@ import unicodedata
 from pipeline import utf16_length, validate_passage
 
 ALIGNER_VERSION = 4
-WORD = re.compile(r"\d[\d,]*|[^\W_]+(?:['’\-][^\W_]+)*", re.UNICODE)
+WORD = re.compile(r"\d{1,3}(?:,\d{3})+(?![\w,])|[^\W_]+(?:['’\-][^\W_]+)*", re.UNICODE)
 SMALL = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split()
 TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
 
@@ -33,10 +33,11 @@ def canonical_units(text):
     return [re.sub(r'[^\w]', '', part) for part in text.split('-') if re.sub(r'[^\w]', '', part)]
 
 
-def alignment_hash(passage, audio_hash, confidence, qa_verified=False, audio_url=None):
+def alignment_hash(passage, audio_hash, confidence, qa_verified=False, audio_url=None, transcript_hash=None):
     source = {key: passage[key] for key in ('id','revision','title','language','paragraphs','source','audio') if key in passage}
     return hashlib.sha256(json.dumps({'passage':source,'audioHash':audio_hash,
-        'confidence':confidence,'qaVerified':qa_verified,'audioUrl':audio_url,'alignerVersion':ALIGNER_VERSION},sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        'confidence':confidence,'qaVerified':qa_verified,'audioUrl':audio_url,
+        'transcriptHash':transcript_hash,'alignerVersion':ALIGNER_VERSION},sort_keys=True,ensure_ascii=False).encode()).hexdigest()
 
 
 def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_verified=False):
@@ -154,7 +155,9 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_
         last_timing=start
     if not tokens:
         raise ValueError('No words matched confidently enough to preview')
-    digest = alignment_hash(passage,audio_hash,minimum_confidence,qa_verified,audio_url)
+    transcript_hash = hashlib.sha256(json.dumps(transcript['results']['items'], sort_keys=True,
+        ensure_ascii=False).encode()).hexdigest()
+    digest = alignment_hash(passage,audio_hash,minimum_confidence,qa_verified,audio_url,transcript_hash)
     prefix = f"/generated/{passage['id']}/human-{digest[:24]}"
     report = {'sourceWords':len(source_words),'alignedWords':len(tokens),
               'coverage':len(tokens)/len(source_words),'uncertainWords':uncertain,
@@ -166,8 +169,12 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_
     manifest = {**passage,'schemaVersion':1,'assetVersion':'human-'+digest[:24],
                 'audio':{'url':prefix+'/audio.mp3','sourceUrl':audio_url,'engine':'human','voice':'Original ReadWorks narrator','sha256':audio_hash},
                 'tokens':tokens,'timings':timings,'timingsUrl':prefix+'/timings.json',
-                'alignment':{'method':'transcribe-text-matching','reportUrl':prefix+'/alignment-report.json',
+                'alignment':{'method':'transcribe-text-matching','transcriptHash':transcript_hash,
+                             'reportUrl':prefix+'/alignment-report.json',
                              **{k:report[k] for k in ('sourceWords','alignedWords','coverage','needsReview','minimumConfidence','qaVerified')}},
                 'generation':{'status':'needs_review' if report['needsReview'] else 'aligned',
                               'engine':'human','textHash':digest,'alignerVersion':ALIGNER_VERSION}}
+    # A normalized input may have been copied from an older generated manifest.
+    # Human word replay must slice this recording, never inherit Polly word clips.
+    manifest.pop('wordAudio', None)
     return manifest,report

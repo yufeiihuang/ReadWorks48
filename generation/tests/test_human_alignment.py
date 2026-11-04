@@ -124,3 +124,23 @@ class QaVerifiedAlignmentTests(unittest.TestCase):
         speech['results']['items'][0]['start_time'] = '-1'
         with self.assertRaisesRegex(ValueError, 'timestamps'):
             align(passage('Hello.'), speech, 'hash', 'https://example.com/a.mp3', qa_verified=True)
+
+    def test_revised_transcript_boundaries_get_a_new_immutable_asset_version(self):
+        data = passage('The park is quiet.')
+        original = transcript(['The', 'park', 'is', 'quiet'])
+        first, _ = align(data, original, 'same-recording', 'https://example.com/a.mp3', qa_verified=True)
+        revised = transcript(['The', 'park', 'is', 'quiet'])
+        revised['results']['items'][0]['end_time'] = '0.6'
+        second, _ = align(data, revised, 'same-recording', 'https://example.com/a.mp3', qa_verified=True)
+        self.assertNotEqual(first['assetVersion'], second['assetVersion'])
+        self.assertNotEqual(first['alignment']['transcriptHash'], second['alignment']['transcriptHash'])
+
+    def test_grouped_number_support_does_not_split_ordinals_or_include_sentence_punctuation(self):
+        manifest, report = self.align_qa('On the 3rd day, 100 people came.', ['On', 'the', '3rd', 'day', '100', 'people', 'came'])
+        self.assertEqual(report['coverage'], 1)
+        self.assertEqual([t['text'] for t in manifest['tokens']], ['On', 'the', '3rd', 'day', '100', 'people', 'came'])
+
+    def test_human_recording_never_inherits_synthetic_word_clips_from_input(self):
+        data = {**passage('The park is quiet.'), 'wordAudio': {'baseUrl': '/generated/words/Stephen/', 'clips': {'w0': 'a'*20}}}
+        manifest, _ = align(data, transcript(['The', 'park', 'is', 'quiet']), 'hash', 'https://example.com/a.mp3', qa_verified=True)
+        self.assertNotIn('wordAudio', manifest)

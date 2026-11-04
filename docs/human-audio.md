@@ -32,7 +32,7 @@ The CDK stack adds a private Step Functions Standard workflow and two small Pyth
 5. The task aligns the words, copies the original audio to an immutable generated version, writes timings/report/manifest, and updates `generated/PASSAGE_ID/current.json` only after all files succeed.
 6. Reload `/?passage=PASSAGE_ID` in the reader. The reader follows `current.json` before demo fallback pins, and CloudFront does not cache that mutable pointer. Recording files remain cached at their immutable URLs. An explicit local `?manifest=` preview still overrides the pointer.
 
-The human event prefix is separate from the existing `passages/*.json` Polly trigger. **Do not upload human source JSON under `passages/`: that prefix synthesizes Polly narration.** Generated outputs, private recordings, and cached transcripts cannot trigger either source workflow.
+The human event prefix is separate from the existing `passages/*.json` Polly trigger. **Do not upload human source JSON under `passages/`: that prefix synthesizes Polly narration.** Generated outputs, private recordings, and cached transcripts cannot trigger either source workflow. Choose one authoritative source prefix per passage ID; both pipelines publish that ID’s current pointer, so do not keep updating an old Polly source after switching the same ID to human audio.
 
 ### Queue with the helper
 
@@ -106,7 +106,7 @@ Other options: `--profile`, `--region` (default `us-west-2`), `--confidence` (de
 ## Cost and maintenance
 
 - Transcription cache: private `human-transcripts/AUDIO_SHA256/en-US-v1.json`. A text edit, threshold edit, QA flag change, or aligner upgrade does not retranscribe unchanged audio.
-- Alignment assets: immutable version includes text/revision, attribution, recording hash, source URL, QA mode, and aligner version. The original MP3 is reused byte-for-byte; there is no Polly/ElevenLabs call in this workflow.
+- Alignment assets: immutable version includes text/revision, attribution, recording hash, transcript contents, source URL, QA mode, and aligner version. Corrected transcript boundaries therefore get new URLs instead of overwriting cached timing files. The original MP3 is reused byte-for-byte; there is no Polly/ElevenLabs call in this workflow.
 - Private source/audio/transcript prefixes are not served by CloudFront. The public `generated/` assets must contain only approved demonstration/ReadWorks content. Do not commit full copyrighted source fixtures to GitHub.
 - Step Functions is billed per transition, with S3, Lambda, transcription, and delivery billed separately. Waiting avoids a paid Lambda invocation sitting idle for the transcription duration. There is no continuously running worker. Use a small representative batch before scaling.
 - The new workflow is tested locally with fake AWS clients and synthesized infrastructure. Real AWS transcription and workflow execution still need a sandbox smoke run after deployment; the cached local sample is not evidence of a new live Transcribe run.
