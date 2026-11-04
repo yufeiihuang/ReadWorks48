@@ -20,12 +20,14 @@ const pinnedManifests = {
   demo: '/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json',
   'park-caretaker': '/generated/park-caretaker/human-712a36cf65895354e6b551d5/manifest.json',
 };
+const audioAllowed = new URLSearchParams(window.location.search).get('audio') !== 'off';
 const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
 const demoPassages = [
   { id: 'demo', title: 'A Morning in the Garden' },
   { id: 'park-caretaker-qa', title: "Let's Meet a Park Caretaker" },
   { id: 'pride-and-prejudice', title: 'Excerpt from Pride and Prejudice' },
 ];
+function openTeacher() { window.location.assign(`?view=teacher&passage=${encodeURIComponent(passageId)}`); }
 function switchPassage(event) {
   const id = event.target.value;
   if (id === passageId || !demoPassages.some(item => item.id === id)) return;
@@ -66,7 +68,7 @@ const error = ref('');
 const saved = ref(false);
 const projector = ref(false);
 const player = useAudioPlayer();
-const audioUnavailable = computed(() => ['empty', 'error'].includes(player.state.status));
+const audioUnavailable = computed(() => !audioAllowed || ['empty', 'error'].includes(player.state.status));
 const activeTokenId = computed(() => {
   if (highlightDismissed.value || audioUnavailable.value || (!player.state.playing && player.state.currentTime === 0)) return null;
   return findActiveToken(passage.value?.timings || [], player.state.currentTime, player.state.duration);
@@ -186,7 +188,7 @@ onMounted(async () => {
   document.addEventListener('click', dismissWordSelection);
   try {
     passage.value = await loadPassage(passageId);
-    player.load(passage.value.audio?.url);
+    if (audioAllowed) player.load(passage.value.audio?.url);
     if (passage.value.audio?.url) loadGradeId(passage.value).then(id => { gradeId.value = id; });
   } catch (cause) { error.value = cause.message; }
 });
@@ -212,7 +214,7 @@ onMounted(async () => {
           <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" @replay="selectWord" /></div>
           <h1 v-else>{{ passage.title }}</h1>
           <div class="article-actions" aria-label="Passage actions">
-            <button disabled title="Assignments are not available in this preview">Assign</button>
+            <button @click="openTeacher">Assign</button>
             <button @click="printPassage">Print</button>
             <button class="icon-button" :aria-pressed="projector" :aria-label="projector ? 'Exit projector view' : 'Enter whiteboard or projector view'" @click="projector = !projector"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="1"/><path d="M9 20h6M12 16v4"/></svg></button>
             <button class="icon-button" :aria-pressed="saved" :aria-label="saved ? 'Remove bookmark' : 'Bookmark passage for this session'" @click="saved = !saved"><svg viewBox="0 0 24 24" aria-hidden="true" :class="{ filled: saved }"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
@@ -222,7 +224,7 @@ onMounted(async () => {
       </section>
       <div class="article-layout">
         <article aria-label="Passage">
-          <AudioConsole
+          <AudioConsole v-if="audioAllowed"
             :disabled="audioUnavailable"
             :playing="player.state.playing"
             :current-time="player.state.currentTime"
@@ -243,7 +245,7 @@ onMounted(async () => {
             </template>
           </AudioConsole>
           <span class="sr-only" role="status"><template v-if="speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template></span>
-          <p v-if="finishedPart !== null || generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings" class="audio-status">
+          <p v-if="audioAllowed && (finishedPart !== null || generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings)" class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
               <template v-else-if="player.state.status === 'empty'">Audio isn't ready for this passage yet. You can still read it.</template>
@@ -265,14 +267,14 @@ onMounted(async () => {
               </select>
             </label>
             <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont">
-              <label v-if="hasTimings" class="highlight-control">
+              <label v-if="audioAllowed && hasTimings" class="highlight-control">
                 <span>Highlight</span>
                 <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
                 <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
                 <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
               </label>
             </ReadingAppearance>
-            <ColorFocusPanel :settings="focus" :part-count="focusParts.length" :current-part="currentPart" :has-timings="canSelectWords" />
+            <ColorFocusPanel v-if="audioAllowed" :settings="focus" :part-count="focusParts.length" :current-part="currentPart" :has-timings="canSelectWords" />
           </div>
           <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
             <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
@@ -282,9 +284,9 @@ onMounted(async () => {
         <aside class="details" aria-labelledby="details-title">
           <h2 id="details-title">DETAILS</h2>
           <ul><li>Words: {{ wordCount }}</li><li>Language: English</li><li v-if="!isReadWorks">Fiction</li></ul>
-          <h3>Audio</h3>
-          <p>{{ hasAudio ? 'Available' : 'Not available yet' }}</p>
-          <p v-if="hasIncompleteTimings" class="muted">Some words are not highlighted.</p>
+          <h3 v-if="audioAllowed">Audio</h3>
+          <p v-if="audioAllowed">{{ hasAudio ? 'Available' : 'Not available yet' }}</p>
+          <p v-if="audioAllowed && hasIncompleteTimings" class="muted">Some words are not highlighted.</p>
           <h3>About this passage</h3><p>{{ isReadWorks || isReference ? 'A reading passage from ReadWorks.' : 'Original sample text for the SoundWorks reader preview.' }}</p>
         </aside>
       </div>
