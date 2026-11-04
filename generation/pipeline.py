@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 SAMPLE_RATE = 16000
-PIPELINE_VERSION = 3  # 3: adds one isolated clip per unique word for "hear just that word"
+PIPELINE_VERSION = 4  # 4: narrate and time the title before the body
 WORD_CLIP_VERSION = 1  # bump to re-synthesize every shared word clip
 WORDS_PREFIX = 'generated/words'
 
@@ -31,7 +31,7 @@ def validate_passage(passage):
     paragraphs = passage['paragraphs']
     if not isinstance(paragraphs, list) or not paragraphs:
         raise ValueError('paragraphs must be a nonempty list')
-    ids = set()
+    ids = {'__title__'}  # reserved for title word timings
     for paragraph in paragraphs:
         if not isinstance(paragraph, dict) or not isinstance(paragraph.get('id'), str) or not paragraph['id']:
             raise ValueError('Every paragraph needs a nonempty string id')
@@ -179,7 +179,8 @@ def generate(passage, output_root, polly, voice='Stephen', force=False, s3=None,
     audio = bytearray()
     tokens, timings, raw_chunks = [], [], []
     billed = 0
-    for paragraph in passage['paragraphs']:
+    title_paragraph = {'id': '__title__', 'text': passage['title']}
+    for paragraph in [title_paragraph, *passage['paragraphs']]:
         for char_offset, text in chunks(paragraph['text']):
             if not text.strip():
                 continue
@@ -214,7 +215,7 @@ def generate(passage, output_root, polly, voice='Stephen', force=False, s3=None,
     audio_hash = hashlib.sha256(wav_data).hexdigest()
     asset_version = digest[:20] + '-' + audio_hash[:12]
     relative = f"/generated/{quote(passage['id'], safe='')}/{asset_version}"
-    manifest = {**passage, 'schemaVersion': 1, 'assetVersion': asset_version, 'tokens': tokens,
+    manifest = {**passage, 'schemaVersion': 1, 'assetVersion': asset_version, 'tokens': tokens, 'narrationTitle': title_paragraph,
                 'audio': {'url': relative + '/audio.wav', 'format': 'wav', 'engine': 'neural', 'voice': voice,
                           'durationMs': len(audio) / 2 / SAMPLE_RATE * 1000, 'sha256': hashlib.sha256(wav_data).hexdigest()},
                 'timings': timings, 'timingsUrl': relative + '/timings.json', 'wordAudio': word_audio,

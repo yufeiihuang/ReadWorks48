@@ -32,6 +32,20 @@ class FakePolly:
 
 
 class PipelineTests(unittest.TestCase):
+    def test_title_precedes_body_with_matching_timings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = FakePolly()
+            item = passage('Hello world.')
+            item['title'] = 'A Garden'
+            manifest, _, _ = generate(item, tmp, client)
+            self.assertEqual(manifest['narrationTitle'], {'id': '__title__', 'text': 'A Garden'})
+            self.assertEqual(manifest['paragraphs'], item['paragraphs'])
+            self.assertEqual([t['text'] for t in manifest['tokens']], ['A', 'Garden', 'Hello', 'world'])
+            self.assertEqual([t['paragraphId'] for t in manifest['tokens']], ['__title__', '__title__', 'p1', 'p1'])
+            self.assertEqual(manifest['timings'][0]['startMs'], 0)
+            self.assertEqual(manifest['timings'][2]['startMs'], 1150)
+            self.assertEqual(client.calls[0]['Text'], 'A Garden')
+
     def test_chunk_limit_preserves_every_character(self):
         text = ('An accented café is here. ' * 400) + 'Done.'
         parts = list(chunks(text))
@@ -66,7 +80,7 @@ class PipelineTests(unittest.TestCase):
             manifest, directory, cached = generate(item, tmp, client)
             self.assertFalse(cached)
             self.assertGreater(manifest['generation']['chunkCount'], 1)
-            self.assertEqual(len(manifest['tokens']), 600)
+            self.assertEqual(len(manifest['tokens']), 601)
             passage_calls = [c for c in client.calls if c['OutputFormat'] != 'mp3']
             for audio_call, mark_call in zip(passage_calls[::2], passage_calls[1::2]):
                 for setting in ('Text', 'TextType', 'VoiceId', 'Engine', 'LanguageCode'):
@@ -92,17 +106,17 @@ class PipelineTests(unittest.TestCase):
             manifest, _, _ = generate(passage('Hello again. hello US us.'), tmp, client)
             words = [c['Text'] for c in client.calls if c['OutputFormat'] == 'mp3']
             # "Hello"/"hello" share a clip; "US" stays separate from "us".
-            self.assertEqual(sorted(words), ['US', 'again', 'hello', 'us'])
+            self.assertEqual(sorted(words), ['US', 'again', 'hello', 'test', 'us'])
             for call in client.calls:
                 self.assertEqual((call['VoiceId'], call['Engine']), ('Stephen', 'neural'))
             audio = manifest['wordAudio']
             self.assertEqual(audio['baseUrl'], '/generated/words/Stephen/')
             self.assertEqual(set(audio['clips']), {t['id'] for t in manifest['tokens']})
-            self.assertEqual(audio['clips']['w0'], audio['clips']['w2'])
+            self.assertEqual(audio['clips']['w1'], audio['clips']['w3'])
             for clip_id in audio['clips'].values():
                 self.assertTrue((Path(tmp) / 'generated/words/Stephen' / f'{clip_id}.mp3').stat().st_size > 0)
-            self.assertEqual(manifest['generation']['wordClipCount'], 4)
-            self.assertEqual(manifest['generation']['wordRequestCharacters'], 5 + 5 + 2 + 2)
+            self.assertEqual(manifest['generation']['wordClipCount'], 5)
+            self.assertEqual(manifest['generation']['wordRequestCharacters'], 5 + 5 + 2 + 2 + 4)
 
     def test_word_clips_are_shared_between_passages(self):
         with tempfile.TemporaryDirectory() as tmp:

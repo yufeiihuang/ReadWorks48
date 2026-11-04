@@ -138,3 +138,9 @@ Verified in the sandbox on November 3, 2026:
 - The CLI with `--bucket` also reuses the shared S3 cache.
 - Blank-space clicks clear the highlight in the deployed reader; playback controls remain usable.
 - Seventeen Python tests, four infrastructure checks, and three timing tests pass.
+
+### Title narration
+
+New Polly recordings (pipeline version 4) read the title before the body, with a 150 ms boundary pause. `narrationTitle` stores the title text and reserved paragraph ID `__title__`; its words participate in the same tokens, timings, and isolated word clips as the body. Body paragraphs stay unchanged. The reader renders title words in the existing heading and supports highlighting, word replay, and sentence replay there. Legacy manifests and human recordings remain unchanged.
+
+After deploying this change, upload `shared/fixtures/demo.json` to `passages/demo.json` again. The pipeline version changes the cache identity, so the older recording is not reused. Verify `/generated/demo/current.json` points to a manifest with `narrationTitle`, preview with `/?passage=demo&latest=1`, and promote that immutable manifest in a separate PR by updating the demo pin in `apps/reader/src/App.vue`. Deploying code alone does not regenerate or replace the pinned recording.

@@ -3,6 +3,7 @@ import { computed, ref, useId } from 'vue';
 import { nextWordIndex } from '../lib/wordCursor.js';
 import { splitSentences } from '../lib/readingParts.js';
 const props = defineProps({
+  heading: { type: Boolean, default: false },
   paragraphs: { type: Array, required: true },
   tokens: { type: Array, default: () => [] },
   activeTokenId: { type: String, default: null },
@@ -77,13 +78,14 @@ function onKeydown(event) {
     @focus="placeCursor"
     @keydown="onKeydown"
   >
-    <p v-for="paragraph in rendered" :key="paragraph.id" :class="{ 'current-part': paragraph.id === focusParagraphId }"><template v-for="(item, itemIndex) in paragraph.items" :key="item.parts ? `s-${item.key}` : `t-${itemIndex}`"><span v-if="item.parts" class="sentence" :class="{ 'current-sentence': currentSentence === `${paragraph.id}:${item.key}` }"><template v-for="(part, index) in item.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive }" @click="select(part)">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span><template v-else>{{ item.text }}</template></template></p>
+    <component :is="heading ? 'h1' : 'p'" v-for="paragraph in rendered" :key="paragraph.id" :class="{ 'current-part': paragraph.id === focusParagraphId }"><template v-for="(item, itemIndex) in paragraph.items" :key="item.parts ? `s-${item.key}` : `t-${itemIndex}`"><span v-if="item.parts" class="sentence" :class="{ 'current-sentence': currentSentence === `${paragraph.id}:${item.key}` }"><template v-for="(part, index) in item.parts" :key="part.id || `gap-${index}`"><span v-if="part.id" :data-token-id="part.id" :class="{ 'spoken-word': activeTokenId === part.id, 'word-cursor': cursorId === part.id, replayable: interactive }" @click="select(part)">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span><template v-else>{{ item.text }}</template></template></component>
   </div>
   <p :id="instructionsId" hidden>Use the left and right arrow keys to choose a word, then press Enter to {{ selectAction }}.</p>
   <span class="sr-only" aria-live="polite">{{ announcement }}</span>
 </template>
 
 <style scoped>
+.read-along-text h1 { margin: 0; font: inherit; }
 .read-along-text:focus { outline: none; }
 .read-along-text:focus-visible { outline: 3px solid #db9d22; outline-offset: 8px; border-radius: 4px; }
 [data-token-id] { border-radius: 3px; scroll-margin: 160px 0 48px; }
