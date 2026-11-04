@@ -4,13 +4,15 @@ import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
 import ReadingAppearance from './components/ReadingAppearance.vue';
 import ColorFocusPanel from './components/ColorFocusPanel.vue';
+import ReadingSettingsMenu from './components/ReadingSettingsMenu.vue';
+import readWorksLogo from './assets/readworks-logo.svg';
 import SpeedTip from './components/SpeedTip.vue';
 import { findActiveToken, findLastStartedToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
 import { loadGeneratedPassage, loadLatestGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
 import { loadGradeId, suggestSpeed } from './lib/speedSuggestion.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
 import { useFollowAlong } from './composables/useFollowAlong.js';
-import { useColorFocus } from './composables/useColorFocus.js';
+import { colorFocusDefaults, useColorFocus } from './composables/useColorFocus.js';
 // Playback test passage with ReadWorks' existing recording; open /?passage=pride-and-prejudice.
 // Loaded in the reader until the API passage routes (SW-10) serve more than the demo fixture.
 const referencePassages = { 'pride-and-prejudice': () => import('../../../shared/fixtures/pride-and-prejudice.json') };
@@ -99,6 +101,11 @@ const focusParagraphId = computed(() => {
 });
 // What tapping a word does: 'read' continues the passage from it, 'say' plays just that word.
 // Remembered per browser; storage can be unavailable, so it falls back to 'read'.
+function resetReadingSettings() {
+  fontScale.value = 1;
+  dyslexiaFont.value = false;
+  Object.assign(focus, colorFocusDefaults);
+}
 const wordAction = ref((() => { try { return localStorage.getItem('soundworks.wordAction') === 'say' ? 'say' : 'read'; } catch { return 'read'; } })());
 watch(wordAction, value => { try { localStorage.setItem('soundworks.wordAction', value); } catch {} });
 const canSelectWords = computed(() => !audioUnavailable.value && (passage.value?.timings?.length || 0) > 0);
@@ -195,7 +202,7 @@ onMounted(async () => {
 <template>
   <div :class="{ projector, 'color-focus': focus.on }" :style="readingStyle">
     <header class="site-header">
-      <a class="brand" href="/" aria-label="ReadWorks SoundWorks home">Read<span>Works</span><sup>®</sup></a>
+      <a class="brand" href="/" aria-label="ReadWorks SoundWorks home"><img :src="readWorksLogo" alt="" width="190" height="29"></a>
       <label class="passage-picker">
         <span>Passage</span>
         <select aria-label="Choose a passage" :value="passageId" @change="switchPassage">
@@ -241,6 +248,12 @@ onMounted(async () => {
             <template #speed-tip>
               <SpeedTip v-if="speedSuggestion" :question="speedSuggestion.question" :speed="speedSuggestion.speed" @accept="acceptSpeedSuggestion" @dismiss="answerSpeedTip" />
             </template>
+            <template #after>
+              <ReadingSettingsMenu @reset="resetReadingSettings">
+                <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" />
+                <ColorFocusPanel :settings="focus" :has-timings="canSelectWords" />
+              </ReadingSettingsMenu>
+            </template>
           </AudioConsole>
           <span class="sr-only" role="status"><template v-if="speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template></span>
           <p v-if="finishedPart !== null || generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings" class="audio-status">
@@ -256,7 +269,7 @@ onMounted(async () => {
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
-          <div class="reading-settings" aria-label="Reading settings" role="group">
+          <div class="reading-settings">
             <label v-if="canSelectWords" class="word-action">
               <span>Tap a word to</span>
               <select v-model="wordAction" aria-label="Tap a word to">
@@ -264,15 +277,16 @@ onMounted(async () => {
                 <option value="say">Hear just that word</option>
               </select>
             </label>
-            <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont">
-              <label v-if="hasTimings" class="highlight-control">
-                <span>Highlight</span>
-                <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
-                <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
-                <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
-              </label>
-            </ReadingAppearance>
-            <ColorFocusPanel :settings="focus" :part-count="focusParts.length" :current-part="currentPart" :has-timings="canSelectWords" />
+            <label v-if="hasTimings" class="highlight-control">
+              <span>Highlight</span>
+              <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
+              <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
+              <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+            </label>
+            <p v-if="focus.on && canSelectWords && focusParts.length > 1" class="part-progress">
+              <span>Part {{ currentPart + 1 }} of {{ focusParts.length }}</span>
+              <span v-if="focusParts.length <= 20" class="part-dots" aria-hidden="true"><i v-for="n in focusParts.length" :key="n" :class="{ done: n - 1 < currentPart, current: n - 1 === currentPart }"></i></span>
+            </p>
           </div>
           <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
             <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />

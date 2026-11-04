@@ -3,16 +3,16 @@ import { crossedPartStart, partIndexAt, partStarts } from '../lib/readingParts.j
 
 export const tints = ['blue', 'green', 'cream', 'none'];
 const storageKey = 'soundworks.colorFocus';
-const defaults = { on: false, tint: 'blue', guide: true, dim: true, pauseParts: true };
+export const colorFocusDefaults = { on: false, tint: 'blue', guide: true, dim: true, pauseParts: true };
 
 function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    const settings = { ...defaults };
-    for (const key of Object.keys(defaults)) if (typeof saved[key] === typeof defaults[key]) settings[key] = saved[key];
-    if (!tints.includes(settings.tint)) settings.tint = defaults.tint;
+    const settings = { ...colorFocusDefaults };
+    for (const key of Object.keys(colorFocusDefaults)) if (typeof saved[key] === typeof colorFocusDefaults[key]) settings[key] = saved[key];
+    if (!tints.includes(settings.tint)) settings.tint = colorFocusDefaults.tint;
     return settings;
-  } catch { return { ...defaults }; }
+  } catch { return { ...colorFocusDefaults }; }
 }
 
 // Color Focus settings (remembered per browser) and reading in parts. With pauseParts on, playback

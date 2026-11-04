@@ -24,13 +24,12 @@ const sizes = [0.75, 1, 1.25, 1.5, 1.75, 2];
       <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
       <span class="highlight-state" aria-hidden="true">{{ dyslexia ? 'On' : 'Off' }}</span>
     </label>
-    <slot />
   </div>
 </template>
 
 <style scoped>
-.reading-appearance { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 28px; font-size: 13px; }
-.text-size { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; color: #52616a; border: 0; padding: 0; margin: 0; min-width: 0; }
+.reading-appearance { display: grid; gap: 12px; font-size: 15px; }
+.text-size { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .size-label { white-space: nowrap; }
 .size-options { display: flex; align-items: stretch; gap: 0; }
 .size-option { position: relative; display: block; text-align: center; flex: 0 0 auto; height: 48px; padding: 0 10px; line-height: 0; border-radius: 5px; color: #345d6b; cursor: pointer; }
@@ -40,9 +39,8 @@ const sizes = [0.75, 1, 1.25, 1.5, 1.75, 2];
 .size-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .size-option:hover::after { background: #e8eff2; }
 .size-option.selected { color: white; }
-.size-option.selected::after { background: #347b91; }
+.size-option.selected::after { background: var(--teal); }
 .size-option:has(input:focus-visible) { outline: 3px solid #db9d22; outline-offset: 2px; }
 @media (max-width: 420px) { .size-options { gap: 1px; } .size-option { padding-inline: 7px; } }
-.font-control { margin-left: 0; }
 @media print { .reading-appearance { display: none; } }
 </style>
