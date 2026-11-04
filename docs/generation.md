@@ -41,6 +41,17 @@ Publishing also writes `generated/PASSAGE_ID/current.json`, including on a cache
 - `audio.wav`: mono 16-bit 16 kHz recording, playable by the browser audio element.
 - `timings.json`: ordered `{tokenId, startMs}` objects; word starts, not inferred word ends.
 - `speech-marks.json`: raw provider marks and chunk offsets for troubleshooting.
+- `wordAudio` (in the manifest): `{baseUrl, format, voice, engine, clips}`, where `clips` maps every token id to a word clip id. The clip is `baseUrl + id + '.mp3'`.
+
+## Word clips for "Hear just that word"
+
+Slicing a word out of the passage recording can't be clean. Neural speech runs words together, and Polly marks only word starts, so the next word's first sound leaks in (QA-1). Instead, each unique word is also synthesized on its own (same voice, Neural, MP3) and stored at `generated/words/VOICE/CLIP_ID.mp3`.
+
+- The clip id hashes the word, voice, language, engine and `WORD_CLIP_VERSION`. Words that differ only by a leading capital share a clip ("The"/"the"). ALL-CAPS words keep their own.
+- Clips are shared by every passage with the same voice. A clip already on disk or in the bucket is never requested again, including from a fresh Lambda.
+- Clips are uploaded before the manifest that refers to them. `generation.wordClipCount` and `generation.wordRequestCharacters` report them, and `requestCharacters` includes them.
+- The reader plays the clip on a second audio element and pauses the passage in place. Manifests without `wordAudio` (generated before pipeline version 3, or human narration) fall back to slicing the passage recording.
+- Words alone use their dictionary pronunciation ("the" may sound like "thee"). Polly can't tell which pronunciation of a homograph ("read", "live") was meant.
 
 Each token has `id`, `paragraphId`, exact spoken `text`, and `start`/`end` JavaScript UTF-16 offsets into its paragraph. Render gaps from the original paragraph to preserve punctuation and spacing. Timings reference unique token IDs even when words repeat. URLs are relative to the deployed reader origin; local preview code must serve these files under `/generated/` if using them locally.
 

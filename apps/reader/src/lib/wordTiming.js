@@ -155,16 +155,17 @@ export function findSentenceStartSeconds(paragraphs, tokens, timings, seconds, d
 }
 
 // Seconds to play when a student hears one word on its own. Human timings carry the word's end
-// (plus a short tail, up to the next word, so final consonants aren't clipped); Polly marks are
-// word starts only, so the word ends where the next begins. Capped so a sentence or paragraph
-// pause after the word isn't played as part of it.
-export function findWordRange(timings, tokenId, maxMs = 1500, tailMs = 80) {
+// (plus a short tail, up to the next word, so final consonants aren't clipped). Polly marks are
+// word starts only, so the clip stops leadMs before the next word starts: the next word's first
+// sound and the browser's pause latency otherwise leak in ("garden ju-", QA-1). It never gets
+// shorter than minMs. Capped so a sentence or paragraph pause after the word isn't played as part of it.
+export function findWordRange(timings, tokenId, maxMs = 1500, tailMs = 80, leadMs = 60, minMs = 120) {
   const index = timings.findIndex(item => item.tokenId === tokenId);
   if (index < 0) return null;
   const { startMs, endMs } = timings[index];
   const nextMs = timings[index + 1]?.startMs;
   let end = startMs + maxMs;
   if (Number.isFinite(endMs) && endMs > startMs) end = endMs + Math.min(tailMs, Number.isFinite(nextMs) ? Math.max(0, nextMs - endMs) : tailMs);
-  else if (Number.isFinite(nextMs) && nextMs > startMs) end = nextMs;
+  else if (Number.isFinite(nextMs) && nextMs > startMs) end = Math.max(nextMs - leadMs, Math.min(nextMs, startMs + minMs));
   return { start: startMs / 1000, end: Math.min(end, startMs + maxMs) / 1000 };
 }

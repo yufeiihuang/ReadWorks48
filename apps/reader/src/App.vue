@@ -4,7 +4,7 @@ import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
 import ColorFocusPanel from './components/ColorFocusPanel.vue';
 import { findActiveToken, findLastStartedToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
-import { loadGeneratedPassage } from './lib/generatedPassage.js';
+import { loadGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
 import { useFollowAlong } from './composables/useFollowAlong.js';
 import { useColorFocus } from './composables/useColorFocus.js';
@@ -16,6 +16,12 @@ const pinnedManifests = {
   'park-caretaker': '/generated/park-caretaker/human-712a36cf65895354e6b551d5/manifest.json',
 };
 const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
+// Dev only: ?manifest=/generated/ID/VERSION/manifest.json tries a recording before it's pinned.
+function devManifest(id) {
+  if (!import.meta.env.DEV) return null;
+  const url = new URLSearchParams(window.location.search).get('manifest');
+  return url && url.startsWith(`/generated/${id}/`) && url.endsWith('/manifest.json') ? url : null;
+}
 const passage = ref(null);
 const generationWarning = ref('');
 const highlightDismissed = ref(false);
@@ -70,10 +76,15 @@ function replayWord(tokenId) {
   const timing = passage.value?.timings?.find(item => item.tokenId === tokenId);
   if (timing && !audioUnavailable.value) { noteJump(); resumeFollowing(); player.playFrom(timing.startMs / 1000); }
 }
-function sayWord(tokenId) {
+// A separately recorded clip of the word when the passage has one (QA-1); otherwise, or if the clip
+// can't play, a slice of the passage recording.
+async function sayWord(tokenId) {
   highlightDismissed.value = false;
+  if (audioUnavailable.value) return;
+  const clipUrl = wordClipUrl(passage.value, tokenId);
+  if (clipUrl && await player.playClip(clipUrl)) return;
   const range = findWordRange(passage.value?.timings || [], tokenId);
-  if (range && !audioUnavailable.value) player.playWord(range.start, range.end);
+  if (range) player.playWord(range.start, range.end);
 }
 const selectWord = tokenId => (wordAction.value === 'say' ? sayWord(tokenId) : replayWord(tokenId));
 function restartPassage() { noteJump(); resumeFollowing(); player.restart(); }
@@ -109,7 +120,7 @@ const wordCount = computed(() => passage.value?.paragraphs.reduce((count, p) => 
 async function loadPassage(id) {
   if (referencePassages[id]) return (await referencePassages[id]()).default;
   try {
-    const manifest = await loadGeneratedPassage(id, pinnedManifests[id]);
+    const manifest = await loadGeneratedPassage(id, devManifest(id) || pinnedManifests[id]);
     if (manifest) return manifest;
   } catch { generationWarning.value = 'Audio is temporarily unavailable. The passage is still available to read.'; }
   const response = await fetch(`/api/passages/${encodeURIComponent(id)}`);

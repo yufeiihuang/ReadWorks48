@@ -8,7 +8,11 @@ import { onBeforeUnmount, reactive, readonly } from 'vue';
 //   it with timing startMs / 1000 to find the active word.
 // - playFrom(seconds) seeks and plays; call it with a word's startMs / 1000 on click.
 // - playWord(start, end) plays one word on its own, then returns to where the passage was and
-//   resumes only if it had been playing. state.wordOnly is true until that return completes.
+//   stays paused there, even if the passage had been playing (QA-2); the student presses play to
+//   continue. state.wordOnly is true until that return completes. This slices the passage
+//   recording, so it's the fallback for passages without word clips.
+// - playClip(url) plays a separately recorded word (QA-1) on a small second element. The passage
+//   pauses where it is and stays paused. state.wordOnly is true while the clip plays.
 export function useAudioPlayer() {
   const audio = new Audio();
   audio.preload = 'auto';
@@ -16,6 +20,12 @@ export function useAudioPlayer() {
   audio.hidden = true;
   audio.dataset.soundworksAudio = 'true';
   document.body.appendChild(audio);
+  // Word clips are whole files, so they get their own element; the passage keeps its place.
+  const clip = new Audio();
+  clip.preload = 'auto';
+  clip.hidden = true;
+  clip.dataset.soundworksWordClip = 'true';
+  document.body.appendChild(clip);
 
   const state = reactive({
     status: 'empty', // empty | loading | ready | error
@@ -31,8 +41,9 @@ export function useAudioPlayer() {
 
   let source = '';
   let frame = 0;
-  let word = null; // { end, returnTo, resume } while playWord is playing one word
+  let word = null; // { end, returnTo } while playWord is playing one word
   let wordTimer = 0;
+  let clipRequest = 0; // increases on every new clip or cancel, so a stale clip's events are ignored
 
   const syncTime = () => { state.currentTime = audio.currentTime; };
   const syncDuration = () => { state.duration = Number.isFinite(audio.duration) ? audio.duration : 0; };
@@ -134,9 +145,9 @@ export function useAudioPlayer() {
     if (state.status === 'empty' || state.status === 'error' || !(end > start)) return;
     // Tapping another word mid-word keeps the original place to return to.
     const returnTo = word ? word.returnTo : audio.currentTime;
-    const resume = word ? word.resume : !audio.paused;
+    stopClip();
     clearTimeout(wordTimer);
-    word = { end, returnTo, resume };
+    word = { end, returnTo };
     state.wordOnly = true;
     seekTo(start);
     if (audio.paused) return startPlayback();
@@ -153,18 +164,49 @@ export function useAudioPlayer() {
     if (!audio.paused) wordTimer = setTimeout(checkWordEnd, Math.max(5, remaining * 1000 - 5));
   }
 
-  async function finishWord() {
-    const { returnTo, resume } = word;
+  // QA-2: the passage never restarts on its own after a single word; it waits paused at its place.
+  function finishWord() {
+    const { returnTo } = word;
     word = null;
     clearTimeout(wordTimer);
     audio.pause();
     seekTo(returnTo);
-    if (resume) await startPlayback();
     // Released a moment later so watchers see the return as part of the word, not a new seek/play.
     setTimeout(() => { if (!word) state.wordOnly = false; });
   }
 
+  // Resolves true once the clip starts, or false if it couldn't play (the caller can fall back).
+  async function playClip(url) {
+    if (state.status === 'empty' || state.status === 'error' || !url) return false;
+    if (word) endWord();
+    const request = ++clipRequest;
+    if (!audio.paused) audio.pause();
+    state.wordOnly = true;
+    clip.volume = audio.volume;
+    clip.defaultPlaybackRate = audio.playbackRate;
+    clip.playbackRate = audio.playbackRate;
+    clip.src = url;
+    try {
+      await clip.play();
+      return true;
+    } catch (error) {
+      if (request === clipRequest) state.wordOnly = false;
+      // AbortError means a newer clip or another action replaced this one; nothing to fall back to.
+      return error.name === 'AbortError';
+    }
+  }
+
+  function stopClip() {
+    clipRequest += 1;
+    if (!clip.paused) clip.pause();
+  }
+
+  const clipDone = () => { state.wordOnly = false; };
+  clip.addEventListener('ended', clipDone);
+  clip.addEventListener('error', clipDone);
+
   function endWord() {
+    stopClip();
     if (!word && !state.wordOnly) return;
     word = null;
     clearTimeout(wordTimer);
@@ -176,7 +218,7 @@ export function useAudioPlayer() {
   }
 
   function setVolume(value) {
-    if (Number.isFinite(value)) audio.volume = Math.min(Math.max(0, value), 1);
+    if (Number.isFinite(value)) clip.volume = audio.volume = Math.min(Math.max(0, value), 1);
   }
 
   function setPlaybackRate(rate) {
@@ -184,6 +226,8 @@ export function useAudioPlayer() {
     // defaultPlaybackRate keeps the chosen speed when a new recording loads.
     audio.defaultPlaybackRate = rate;
     audio.playbackRate = rate;
+    clip.defaultPlaybackRate = rate;
+    clip.playbackRate = rate;
   }
 
   function retry() {
@@ -198,6 +242,11 @@ export function useAudioPlayer() {
     audio.removeAttribute('src');
     audio.load();
     audio.remove();
+    clip.removeEventListener('ended', clipDone);
+    clip.removeEventListener('error', clipDone);
+    clip.removeAttribute('src');
+    clip.load();
+    clip.remove();
   });
 
   return {
@@ -210,6 +259,7 @@ export function useAudioPlayer() {
     seek,
     playFrom,
     playWord,
+    playClip,
     restart,
     setVolume,
     setPlaybackRate,
