@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findActiveToken, findSentenceStartSeconds } from '../src/lib/wordTiming.js';
+import { findActiveToken, findLastStartedToken, findSentenceStartSeconds } from '../src/lib/wordTiming.js';
 const timings = [{tokenId:'first-maya',startMs:100},{tokenId:'walked',startMs:500},{tokenId:'second-maya',startMs:1500}];
 test('selects exact boundaries and unique repeated-word identities',()=>{
   assert.equal(findActiveToken(timings,.099),null);
@@ -31,4 +31,12 @@ test('sentence replay in a human timing gap stays in the current sentence',()=>{
   const times=[{tokenId:'a',startMs:0,endMs:400},{tokenId:'b',startMs:500,endMs:800},{tokenId:'c',startMs:1000,endMs:1300},{tokenId:'d',startMs:1500,endMs:1900}];
   assert.equal(findActiveToken(times,1.4),null);
   assert.equal(findSentenceStartSeconds(paragraphs,tokens,times,1.4),1);
+});
+test('the last started word is held through the pause after a human word ends',()=>{
+  const human = [{tokenId:'park',startMs:1000,endMs:1300},{tokenId:'next',startMs:2000,endMs:2200}];
+  assert.equal(findActiveToken(human,1.5),null);
+  assert.equal(findLastStartedToken(human,1.5),'park');
+  assert.equal(findLastStartedToken(human,.5),null);
+  assert.equal(findLastStartedToken(human,2.1),'next');
+  assert.equal(findLastStartedToken(human,3,3),null);
 });

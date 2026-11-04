@@ -1,5 +1,5 @@
 // Timing arrays are ordered word-start timestamps from the matching recording.
-export function findActiveToken(timings, seconds, duration = 0) {
+function lastStartedTiming(timings, seconds, duration) {
   if (!Number.isFinite(seconds) || seconds < 0 || (duration > 0 && seconds >= duration)) return null;
   let low = 0, high = timings.length - 1, result = null;
   while (low <= high) {
@@ -7,8 +7,19 @@ export function findActiveToken(timings, seconds, duration = 0) {
     if (timings[middle].startMs <= seconds * 1000) { result = timings[middle]; low = middle + 1; }
     else high = middle - 1;
   }
+  return result;
+}
+
+export function findActiveToken(timings, seconds, duration = 0) {
+  const result = lastStartedTiming(timings, seconds, duration);
   if (result && Number.isFinite(result.endMs) && seconds * 1000 >= result.endMs) return null;
   return result?.tokenId ?? null;
+}
+
+// The most recently started word, held through the pause after it ends (where findActiveToken
+// clears), so place markers such as the Color Focus sentence highlight don't flicker off.
+export function findLastStartedToken(timings, seconds, duration = 0) {
+  return lastStartedTiming(timings, seconds, duration)?.tokenId ?? null;
 }
 
 // Sentence terminators and the trailing characters (closing quotes/brackets) that
