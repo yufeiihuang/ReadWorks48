@@ -29,7 +29,9 @@ svg.filled { fill: currentColor; }
 .article-tabs { display: flex; align-items: stretch; gap: 16px; overflow-x: auto; }
 .article-tabs > * { white-space: nowrap; padding: 12px 6px 10px; font-size: 17px; border: 0; border-bottom: 3px solid transparent; background: none; color: #344048; }
 .article-tabs .active { border-bottom-color: var(--teal); color: var(--teal); font-weight: 700; }
-.article-tabs button:disabled { color: #707c84; }
+.article-tabs button:disabled { color: #707c84; display: inline-flex; align-items: center; gap: 8px; }
+.soon-badge { font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--teal); background: white; border: 1px solid #a9c8d2; border-radius: 999px; padding: 1px 8px; }
+@media (max-width: 760px) { .article-tabs button:disabled { flex-direction: column; align-items: flex-start; gap: 4px; } }
 .article-layout { max-width: 1170px; margin: 0 auto; padding: 26px 24px 64px; display: grid; grid-template-columns: minmax(0, 1fr) 255px; gap: 54px; min-height: 470px; }
 .audio-toolbar { width: 100%; position: sticky; top: 0; z-index: 5; background: white; padding: 8px 0; }
 .floating-actions { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px; }
