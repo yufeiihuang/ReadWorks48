@@ -19,6 +19,12 @@ const passageId = new URLSearchParams(window.location.search).get('passage') || 
 const passage = ref(null);
 const generationWarning = ref('');
 const highlightDismissed = ref(false);
+const highlightEnabled = ref((() => {
+  try { return localStorage.getItem('soundworks.highlightEnabled') !== 'false'; } catch { return true; }
+})());
+watch(highlightEnabled, enabled => {
+  try { localStorage.setItem('soundworks.highlightEnabled', String(enabled)); } catch {}
+});
 const error = ref('');
 const saved = ref(false);
 const projector = ref(false);
@@ -28,6 +34,11 @@ const activeTokenId = computed(() => {
   if (highlightDismissed.value || audioUnavailable.value || (!player.state.playing && player.state.currentTime === 0)) return null;
   return findActiveToken(passage.value?.timings || [], player.state.currentTime, player.state.duration);
 });
+const highlightedTokenId = computed(() => highlightEnabled.value ? activeTokenId.value : null);
+function toggleHighlighting() {
+  highlightEnabled.value = !highlightEnabled.value;
+  if (highlightEnabled.value) { highlightDismissed.value = false; resumeFollowing(); }
+}
 watch(() => player.state.playing, playing => { if (playing) highlightDismissed.value = false; });
 function dismissWordSelection(event) {
   if (event.target.closest('.audio-toolbar')) { highlightDismissed.value = false; return; }
@@ -37,7 +48,7 @@ function dismissWordSelection(event) {
 }
 // Space under the sticky console; capped so a tall console on small screens can't hide the band.
 const consoleInset = () => Math.min(Math.max(0, document.querySelector('.audio-toolbar')?.getBoundingClientRect().bottom ?? 0), window.innerHeight * 0.4);
-const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(activeTokenId, () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly });
+const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(highlightedTokenId, () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly });
 // Color Focus: calm tint, reading guide, fewer distractions, and reading one paragraph at a time.
 const { settings: focus, parts: focusParts, currentPart, finishedPart, jumped: noteJump, keepGoing } = useColorFocus(passage, player);
 // The sentence highlight follows the last word spoken and stays on through pauses between words.
@@ -168,14 +179,22 @@ onMounted(async () => {
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
-          <fieldset v-if="canSelectWords" class="word-action">
-            <legend>Tap a word to</legend>
-            <label :class="{ selected: wordAction === 'read' }"><input v-model="wordAction" type="radio" name="word-action" value="read">Read from there</label>
-            <label :class="{ selected: wordAction === 'say' }"><input v-model="wordAction" type="radio" name="word-action" value="say">Hear just that word</label>
-          </fieldset>
+          <div v-if="canSelectWords || hasTimings" class="reading-options" aria-label="Reading options">
+            <fieldset v-if="canSelectWords" class="word-action">
+              <legend>Tap a word to</legend>
+              <label :class="{ selected: wordAction === 'read' }"><input v-model="wordAction" type="radio" name="word-action" value="read">Read from there</label>
+              <label :class="{ selected: wordAction === 'say' }"><input v-model="wordAction" type="radio" name="word-action" value="say">Hear just that word</label>
+            </fieldset>
+            <label v-if="hasTimings" class="highlight-control">
+              <span>Highlight</span>
+              <input class="highlight-switch" type="checkbox" role="switch" :checked="highlightEnabled" @change="toggleHighlighting">
+              <span class="highlight-track" aria-hidden="true"><span class="highlight-thumb"></span></span>
+              <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
+            </label>
+          </div>
           <ColorFocusPanel v-if="focus.on" :settings="focus" :part-count="focusParts.length" :current-part="currentPart" :has-timings="canSelectWords" />
           <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
-            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="activeTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
+            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="selectWord" />
           </div>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
@@ -193,7 +212,7 @@ onMounted(async () => {
           <span class="part-done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>Part {{ finishedPart + 1 }} of {{ focusParts.length }} done</span>
           <span class="keep-going">Keep going<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg></span>
         </button>
-        <button v-if="!following && activeTokenId && wordPlacement !== 'visible'" type="button" class="follow-return" @click="resumeFollowing">
+        <button v-if="highlightEnabled && !following && activeTokenId && wordPlacement !== 'visible'" type="button" class="follow-return" @click="resumeFollowing">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="wordPlacement === 'above'" d="M12 19V5M6 11l6-6 6 6"/><path v-else d="M12 5v14M6 13l6 6 6-6"/></svg>
           Back to where we're reading
         </button>
