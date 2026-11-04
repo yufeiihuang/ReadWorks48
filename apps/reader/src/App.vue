@@ -291,10 +291,10 @@ onMounted(async () => {
             <h2>Words to learn (official)</h2>
             <p v-if="vocabularyStatus" role="status">{{ vocabularyStatus }}</p>
             <p v-else-if="!official.length">This passage has no official word list.</p>
-            <VocabularyWord v-for="entry in official" :key="entry.tokenId" :entry="entry" :saved="isSaved(entry)" :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+            <VocabularyWord collapsible v-for="entry in official" :key="entry.tokenId" :entry="entry" :saved="isSaved(entry)" :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
             <h2>My words (personal)</h2>
             <p v-if="!myWords.length">Add words with the star in a definition card.</p>
-            <VocabularyWord v-for="entry in myWords" :key="entry.word" :entry="entry" saved :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+            <VocabularyWord collapsible v-for="entry in myWords" :key="entry.word" :entry="entry" saved :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
             <small><a href="https://simple.wiktionary.org/" target="_blank" rel="noopener">Definitions from Simple English Wiktionary (CC BY-SA 4.0)</a></small>
           </section>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>

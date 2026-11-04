@@ -118,5 +118,5 @@ footer span { margin-left: 18px; }
 .vocabulary-actions button { padding: 8px 12px; border: 1px solid #a9c8d2; border-radius: 6px; background: #f2f8fa; color: #20576a; cursor: pointer; }
 .vocabulary-actions button:disabled { opacity: .5; cursor: default; }
 .vocabulary-view { padding: 20px 0; }
-.vocabulary-view .vocabulary-word { padding: 24px 0; border-bottom: 1px solid #dce5e8; }
+.vocabulary-view .vocabulary-word { padding: 12px 0; border-bottom: 1px solid #dce5e8; }
 @media print { .definition-card, .vocabulary-view { display: none !important; } .passage-panel { display: block !important; } }
