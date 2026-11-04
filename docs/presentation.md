@@ -67,12 +67,13 @@ Details: [architecture](architecture.md) · [generation](generation.md) · [huma
 | 1 | 0:00 | Press **Play**. Let paragraph 1 play. | "A natural neural voice reads the passage, and every word lights up as it's spoken." |
 | 2 | 0:20 | Tap **"bird"**. | "Lost your place? Tap any word and it reads from there." |
 | 3 | 0:35 | Keep listening through "Then the sun appeared…" and let "Brrr!" go by. | If anyone reacts to "Brrr!": "Sound words like that are a known weak spot for the voice. It's on our limits list." |
-| 4 | 0:55 | Pause. Hover over **"sunrise"** and click **Hear this word**. | "For decoding practice, a student can hear one word on its own. The passage waits where it was." |
+| 4 | 0:55 | Pause. Hover over **"sunrise"** and click **Hear it** in the definition card. | "For decoding practice, a student can hear one word on its own. The passage waits where it was." |
 | 5 | 1:15 | Click the **Highlight** switch off, then on. Press **Tab** once (an amber outline shows focus is on the passage), press **→** a few times, then **Enter**. | "Students who find the moving highlight distracting can turn it off. Everything works from the keyboard: arrow keys move word by word, screen readers announce each one, and Enter reads from there. Screen readers hear the passage as normal sentences, not 49 separate buttons." |
 | 6 | 1:45 | Click the round **Aa** button beside the audio bar. Text size: the biggest **Aa**. **Dyslexia font** on. Click **Done**, then press **Start over**. | "Larger text and a dyslexia-friendly font. The page scrolls by itself to keep the spoken word in view, and the audio bar stays on top." |
 | 7 | 2:15 | Open **Aa** again. Text size back to the second **Aa** (100%), Dyslexia font off. Turn on the **Color Focus** switch and click **Cream**. Click **Done**, then press **Start over**. When it stops after paragraph 1, click **Keep going**. | "Color Focus is for students with attention difficulties. It puts a soft tint behind the passage, highlights the sentence being read, dims other paragraphs, and stops after each paragraph so they can take a breath. 'Part 1 of 2 done.' The student decides when to keep going. Tints include blue, green and cream." |
 | 8 | 2:55 | Open **Aa**, turn **Color Focus** off and click **Done**. Open https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker-qa in a new tab. Wait for "Are you in 1st grade?", click **Change to 0.5×**, then Play for a few seconds. | "This is a real ReadWorks passage read by ReadWorks' own human narrator. The site knows it's a 1st-grade passage and suggests a slower speed, without making a new recording. The highlighting comes from Amazon Transcribe matched to the approved text, run by our Step Functions workflow. The note says some words aren't highlighted; that's honest: 356 of 360 are." |
-| 9 | 3:30 | Pause. | Hand over to the impact speaker. |
+| 9 | 3:15 | Pause. Hover over **nature** until the definition card opens. Press **☆ Add to My words**, then open **Vocabulary**. | "Students can explore a word without interrupting the reading. Official ReadWorks words are underlined; their own starred words stay in this browser." |
+| 10 | 3:30 | Pause. | Hand over to the impact speaker. |
 
 **If you're running long,** drop step 6 first, then the keyboard part of step 5.
 
@@ -96,7 +97,7 @@ Source: [cost.md](cost.md) (AWS Polly prices checked Nov 4, 2026; library figure
 - **Storage is about $1 to $1.25 a month** for the whole library.
 - **Only changes cost money.** New or edited passages regenerate; unchanged ones reuse the cache. This was verified in the sandbox: an unchanged re-upload used zero new characters.
 - **Scales without servers.** No VMs or database. CloudFront serves from the edge, generation runs when a passage is uploaded, and every merge deploys itself.
-- **Access:** works in any browser, including school Chromebooks and phones (checked at phone width), with no login. No student data is stored; reading preferences stay in that browser.
+- **Access:** works in any browser, including school Chromebooks and phones (checked at phone width), with no login. Reading preferences and starred vocabulary stay in that browser; there is no student account or server-side word list.
 
 Keep these caveats ready but don't lead with them. The $640 doesn't count per-word clips (shared by every passage, not measured yet), CloudFront, Lambda or S3 request costs, or Polly's free tier.
 
@@ -108,7 +109,7 @@ Keep these caveats ready but don't lead with them. The $640 doesn't count per-wo
 2. **"Brrr!" sounds robotic.** Sound words are a known weak spot for Polly Neural.
 3. **Human-recording automation is still in progress.** It runs live in AWS, but only with an already-saved transcript so far; a first new Transcribe job hasn't been tried. In the caretaker passage, 4 of 360 words aren't highlighted because Transcribe merged or skipped them.
 4. **Single words use their dictionary pronunciation,** so homographs like "read" and "live" can come out wrong.
-5. **The Vocabulary Activity and Question Set tabs aren't built yet** (PR #19 labels them "Coming soon"). English only.
+5. **Definitions have gaps.** Vocabulary uses learner definitions from Simple English Wiktionary, with English Wiktionary as a fallback. Some names and sound words have no entry. My words are saved only in this browser, per passage. English only; Question Set is hidden.
 
 ---
 
@@ -119,9 +120,9 @@ Keep these caveats ready but don't lead with them. The $640 doesn't count per-wo
 - **What happens when ReadWorks edits a passage?** The cache key includes the text, so only that passage regenerates. The `current.json` pointer switches once all the new files are in place.
 - **Why WAV and not MP3?** WAV lets us stitch long passages together precisely without extra audio tools. MP3 can come later without changing the timing format.
 - **Security?** All buckets are private behind CloudFront, and generation has no public endpoint. Deploys use short-lived OIDC credentials that only `main` can get, with no AWS keys in GitHub.
-- **Student privacy?** No accounts and no database. Preferences are stored only in the student's own browser.
+- **Student privacy?** No accounts and no database. Preferences and My words are stored only in the student's own browser. Dictionary requests send the selected word, with no student identifier.
 - **Other languages?** Not yet. The ReadWorks import accepts English passages only today, though Polly has neural voices in other languages.
-- **What's next?** Regenerate the library with per-word clips, run a first new Transcribe job on a small approved recording, and build the Vocabulary and Question tabs.
+- **What's next?** Regenerate the library with per-word clips, run a first new Transcribe job on a small approved recording, improve vocabulary coverage, add account sync for My words, and build question activities.
 
 ---
 

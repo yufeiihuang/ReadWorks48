@@ -1,5 +1,10 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import SettingSwitch from './components/SettingSwitch.vue';
+import VocabularyActivity from './components/VocabularyActivity.vue';
+import VocabularyWord from './components/VocabularyWord.vue';
+import { useVocabulary } from './composables/useVocabulary.js';
+import { ensureTokens } from './lib/vocabulary.js';
 import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
 import ReadingAppearance from './components/ReadingAppearance.vue';
@@ -46,6 +51,7 @@ function devManifest(id) {
   return url && url.startsWith(`/generated/${id}/`) && url.endsWith('/manifest.json') ? url : null;
 }
 const passage = ref(null);
+const { tab, official, officialTokenIds, vocabularyStatus, myWords, hoverEnabled, isSaved, toggleWord, loadVocabulary, card, cardElement, cardStyle, openCard, closeCard, keepCard, leaveCard, tabKey } = useVocabulary(passage, passageId);
 const generationWarning = ref('');
 const highlightDismissed = ref(false);
 const highlightEnabled = ref((() => {
@@ -89,7 +95,7 @@ function dismissWordSelection(event) {
 }
 // Space under the sticky console; capped so a tall console on small screens can't hide the band.
 const consoleInset = () => Math.min(Math.max(0, document.querySelector('.audio-toolbar')?.getBoundingClientRect().bottom ?? 0), window.innerHeight * 0.4);
-const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(highlightedTokenId, () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly });
+const { following, placement: wordPlacement, resume: resumeFollowing } = useFollowAlong(computed(() => tab.value === 'passage' ? highlightedTokenId.value : null), () => player.state.playing, { topInset: consoleInset, frozen: () => player.state.wordOnly || tab.value !== 'passage' });
 // Color Focus: calm tint, reading guide, fewer distractions, and reading one paragraph at a time.
 const { settings: focus, parts: focusParts, currentPart, finishedPart, jumped: noteJump, keepGoing } = useColorFocus(passage, player);
 // The sentence highlight follows the last word spoken and stays on through pauses between words.
@@ -101,8 +107,6 @@ const focusParagraphId = computed(() => {
   if (!focus.on || !focus.dim || audioUnavailable.value || (!player.state.playing && player.state.currentTime === 0)) return null;
   return focusParts.value[currentPart.value]?.paragraphId ?? null;
 });
-// What tapping a word does: 'read' continues the passage from it, 'say' plays just that word.
-// Remembered per browser; storage can be unavailable, so it falls back to 'read'.
 function resetReadingSettings() {
   fontScale.value = 1;
   dyslexiaFont.value = false;
@@ -174,6 +178,8 @@ onMounted(async () => {
   document.addEventListener('click', dismissWordSelection);
   try {
     passage.value = await loadPassage(passageId);
+    ensureTokens(passage.value);
+    loadVocabulary();
     if (audioAllowed) player.load(passage.value.audio?.url);
     if (passage.value.audio?.url) loadGradeId(passage.value).then(id => { gradeId.value = id; });
   } catch (cause) { error.value = cause.message; }
@@ -197,7 +203,7 @@ onMounted(async () => {
     <main v-else class="article-page">
       <section class="article-heading">
         <div class="heading-inner">
-          <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :can-hear="canHearWord" @replay="replayWord" @hear="sayWord" /></div>
+          <div class="narrated-title" v-if="passage.narrationTitle"><PassageText heading :paragraphs="[passage.narrationTitle]" :tokens="(passage.tokens || []).filter(t => t.paragraphId === passage.narrationTitle.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :definitions-enabled="hoverEnabled" :official-token-ids="officialTokenIds" @define="openCard" @word-enter="keepCard" @word-leave="leaveCard" :can-hear="canHearWord" @replay="replayWord" @hear="sayWord" /></div>
           <h1 v-else>{{ passage.title }}</h1>
           <div class="article-actions" aria-label="Passage actions">
             <button @click="openTeacher">Assign</button>
@@ -205,7 +211,9 @@ onMounted(async () => {
             <button class="icon-button" :aria-pressed="projector" :aria-label="projector ? 'Exit projector view' : 'Enter whiteboard or projector view'" @click="projector = !projector"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="1"/><path d="M9 20h6M12 16v4"/></svg></button>
             <button class="icon-button" :aria-pressed="saved" :aria-label="saved ? 'Remove bookmark' : 'Bookmark passage for this session'" @click="saved = !saved"><svg viewBox="0 0 24 24" aria-hidden="true" :class="{ filled: saved }"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
           </div>
-          <nav class="article-tabs" aria-label="Passage sections"><span class="active" aria-current="page">Passage</span><button disabled>Vocabulary Activity <span class="soon-badge">Coming soon</span></button><button disabled>Question Set <span class="soon-badge">Coming soon</span></button></nav>
+          <nav class="article-tabs" role="tablist" aria-label="Passage sections" @keydown="tabKey">
+            <button v-for="name in ['passage', 'vocabulary']" :key="name" :id="`tab-${name}`" role="tab" :class="{ active: tab === name }" :aria-selected="tab === name" :aria-controls="`panel-${name}`" :tabindex="tab === name ? 0 : -1" @click="tab = name">{{ name === 'passage' ? 'Passage' : 'Vocabulary' }}</button>
+          </nav>
         </div>
       </section>
       <div class="article-layout">
@@ -230,6 +238,7 @@ onMounted(async () => {
             <template #settings>
               <ReadingSettingsMenu @reset="resetReadingSettings">
                 <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" />
+                <SettingSwitch v-model="hoverEnabled" label="Definitions on hover" />
                 <ColorFocusPanel :settings="focus" :has-timings="canSelectWords" />
               </ReadingSettingsMenu>
             </template>
@@ -265,10 +274,23 @@ onMounted(async () => {
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>
-          <ReadingAppearance v-if="!audioAllowed" v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" />
-          <div class="passage-frame" :class="focus.on && `tint-${focus.tint}`">
-            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :can-hear="canHearWord" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" @replay="replayWord" @hear="sayWord" />
+          <div v-if="!audioAllowed" class="reading-settings"><ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" /><SettingSwitch v-model="hoverEnabled" label="Definitions on hover" /></div>
+          <div id="panel-passage" role="tabpanel" aria-labelledby="tab-passage" v-show="tab === 'passage'" class="passage-panel passage-frame" :class="focus.on && `tint-${focus.tint}`">
+            <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :can-hear="canHearWord" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" :definitions-enabled="hoverEnabled" :official-token-ids="officialTokenIds" @define="openCard" @word-enter="keepCard" @word-leave="leaveCard" @replay="replayWord" @hear="sayWord" />
           </div>
+          <section v-show="tab === 'vocabulary'" id="panel-vocabulary" class="vocabulary-view" role="tabpanel" aria-labelledby="tab-vocabulary">
+            <VocabularyActivity :words="official" :can-hear="canSelectWords" @hear="sayWord" />
+            <h2>Passage words</h2>
+            <p class="vocabulary-description">Words to explore in this reading.</p>
+            <p v-if="vocabularyStatus" role="status">{{ vocabularyStatus }}</p>
+            <p v-else-if="!official.length">This passage has no word list.</p>
+            <VocabularyWord collapsible v-for="entry in official" :key="entry.tokenId" :entry="entry" :saved="isSaved(entry)" :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+            <h2>My words</h2>
+            <p class="vocabulary-description">Words you’ve saved.</p>
+            <p v-if="!myWords.length">Add words with the star in a definition card.</p>
+            <VocabularyWord collapsible v-for="entry in myWords" :key="entry.word" :entry="entry" saved :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+            <small class="vocabulary-credit">Definitions from <a href="https://simple.wiktionary.org/" target="_blank" rel="noopener">Simple English Wiktionary</a> and <a href="https://en.wiktionary.org/" target="_blank" rel="noopener">English Wiktionary</a> (CC BY-SA 4.0).</small>
+          </section>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
         <aside class="details" aria-labelledby="details-title">
@@ -285,12 +307,16 @@ onMounted(async () => {
           <span class="part-done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>Part {{ finishedPart + 1 }} of {{ focusParts.length }} done</span>
           <span class="keep-going">Keep going<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg></span>
         </button>
-        <button v-if="highlightEnabled && !following && activeTokenId && wordPlacement !== 'visible'" type="button" class="follow-return" @click="resumeFollowing">
+        <button v-if="tab === 'passage' && highlightEnabled && !following && activeTokenId && wordPlacement !== 'visible'" type="button" class="follow-return" @click="resumeFollowing">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="wordPlacement === 'above'" d="M12 19V5M6 11l6-6 6 6"/><path v-else d="M12 5v14M6 13l6 6 6-6"/></svg>
           Back to where we're reading
         </button>
       </div>
     </main>
+    <Teleport to="body"><section v-if="card" ref="cardElement" class="definition-card" :style="cardStyle" role="dialog" aria-label="Word definition" tabindex="-1" @pointerenter="keepCard" @pointerleave="leaveCard" @focusin="keepCard" @focusout="!$event.currentTarget.contains($event.relatedTarget) && leaveCard()">
+      <button class="definition-close" aria-label="Close definition" @click="closeCard">×</button>
+      <VocabularyWord :entry="card" :saved="isSaved(card)" :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
+    </section></Teleport>
     <footer>ReadWorks SoundWorks <span>Hackathon reader preview</span></footer>
   </div>
 </template>
