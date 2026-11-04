@@ -19,6 +19,20 @@ const pinnedManifests = {
   'park-caretaker': '/generated/park-caretaker/human-712a36cf65895354e6b551d5/manifest.json',
 };
 const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
+const demoPassages = [
+  { id: 'demo', title: 'A Morning in the Garden' },
+  { id: 'park-caretaker-qa', title: "Let's Meet a Park Caretaker" },
+  { id: 'pride-and-prejudice', title: 'Excerpt from Pride and Prejudice' },
+];
+function switchPassage(event) {
+  const id = event.target.value;
+  if (id === passageId || !demoPassages.some(item => item.id === id)) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set('passage', id);
+  url.searchParams.delete('manifest');
+  // Navigation resets playback and passage-specific state and supports browser Back.
+  window.location.assign(url.href);
+}
 // Dev only: ?manifest=/generated/ID/VERSION/manifest.json tries a recording before it's pinned.
 function devManifest(id) {
   if (!import.meta.env.DEV) return null;
@@ -179,7 +193,13 @@ onMounted(async () => {
   <div :class="{ projector, 'color-focus': focus.on }" :style="readingStyle">
     <header class="site-header">
       <a class="brand" href="/" aria-label="ReadWorks SoundWorks home">Read<span>Works</span><sup>®</sup></a>
-      <span class="preview-label">SoundWorks · Reader preview</span>
+      <label class="passage-picker">
+        <span>Passage</span>
+        <select aria-label="Choose a passage" :value="passageId" @change="switchPassage">
+          <option v-if="!demoPassages.some(item => item.id === passageId)" :value="passageId">{{ passage?.title || 'Current passage' }}</option>
+          <option v-for="item in demoPassages" :key="item.id" :value="item.id">{{ item.title }}</option>
+        </select>
+      </label>
     </header>
     <main v-if="error" class="error" role="alert"><h1>Unable to open this passage</h1><p>{{ error }}</p><button @click="reload">Try again</button></main>
     <main v-else-if="!passage"><p role="status">Loading passage…</p></main>
