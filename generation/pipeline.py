@@ -9,7 +9,9 @@ from pathlib import Path
 from urllib.parse import quote
 
 SAMPLE_RATE = 16000
-PIPELINE_VERSION = 2
+PIPELINE_VERSION = 3  # 3: adds one isolated clip per unique word for "hear just that word"
+WORD_CLIP_VERSION = 1  # bump to re-synthesize every shared word clip
+WORDS_PREFIX = 'generated/words'
 
 
 def validate_passage(passage):
@@ -104,7 +106,63 @@ def read_stream(response, key='AudioStream'):
         return stream.read()
 
 
-def generate(passage, output_root, polly, voice='Stephen', force=False):
+def word_key(text):
+    """Words that differ only by a leading capital share a clip ("The"/"the"); ALL-CAPS words
+    like "US" keep their own, since Polly may spell them out."""
+    return text.lower() if text[1:] == text[1:].lower() else text
+
+
+def word_clip_id(text, voice, language):
+    payload = {'clipVersion': WORD_CLIP_VERSION, 'word': word_key(text), 'voice': voice,
+               'language': language, 'engine': 'neural', 'format': 'mp3'}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:20]
+
+
+def word_clip_key(voice, clip_id):
+    return f'{WORDS_PREFIX}/{quote(voice, safe="")}/{clip_id}.mp3'
+
+
+def _remote_exists(s3, bucket, key):
+    try:
+        return s3.head_object(Bucket=bucket, Key=key)['ContentLength'] > 0
+    except Exception as error:
+        if _missing_object(error):
+            return False
+        raise
+
+
+def generate_word_clips(tokens, language, output_root, polly, voice, s3=None, bucket=None):
+    """Synthesize each unique word on its own, so it starts and ends in silence. Clips are shared by
+    every passage with the same voice: a clip already on disk or in the bucket is never re-requested.
+    Returns the manifest's wordAudio section and the characters billed."""
+    clips, billed, unique = {}, 0, {}
+    for token in tokens:
+        clip_id = word_clip_id(token['text'], voice, language)
+        clips[token['id']] = clip_id
+        unique.setdefault(clip_id, word_key(token['text']))
+    for clip_id, text in unique.items():
+        key = word_clip_key(voice, clip_id)
+        path = Path(output_root) / key
+        if path.exists() and path.stat().st_size > 0:
+            continue
+        if bucket and _remote_exists(s3, bucket, key):
+            continue
+        response = polly.synthesize_speech(Text=text, TextType='text', VoiceId=voice, Engine='neural',
+                                           LanguageCode=language, OutputFormat='mp3')
+        data = read_stream(response)
+        if not data:
+            raise ValueError(f'Polly returned no audio for the word {text!r}')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix('.tmp')
+        temporary.write_bytes(data)
+        temporary.replace(path)
+        billed += response.get('RequestCharacters', len(text))
+    section = {'baseUrl': f'/{WORDS_PREFIX}/{quote(voice, safe="")}/', 'format': 'mp3',
+               'voice': voice, 'engine': 'neural', 'clips': clips}
+    return section, billed
+
+
+def generate(passage, output_root, polly, voice='Stephen', force=False, s3=None, bucket=None):
     validate_passage(passage)
     digest = fingerprint(passage, voice)
     directory = Path(output_root) / passage['id'] / digest[:20]
@@ -145,6 +203,7 @@ def generate(passage, output_root, polly, voice='Stephen', force=False):
             billed += audio_response.get('RequestCharacters', len(text)) + marks_response.get('RequestCharacters', len(text))
     if not tokens:
         raise ValueError('No spoken words were generated')
+    word_audio, word_billed = generate_word_clips(tokens, passage['language'], output_root, polly, voice, s3, bucket)
     buffer = io.BytesIO()
     with wave.open(buffer, 'wb') as wav:
         wav.setnchannels(1)
@@ -158,9 +217,11 @@ def generate(passage, output_root, polly, voice='Stephen', force=False):
     manifest = {**passage, 'schemaVersion': 1, 'assetVersion': asset_version, 'tokens': tokens,
                 'audio': {'url': relative + '/audio.wav', 'format': 'wav', 'engine': 'neural', 'voice': voice,
                           'durationMs': len(audio) / 2 / SAMPLE_RATE * 1000, 'sha256': hashlib.sha256(wav_data).hexdigest()},
-                'timings': timings, 'timingsUrl': relative + '/timings.json',
+                'timings': timings, 'timingsUrl': relative + '/timings.json', 'wordAudio': word_audio,
                 'generation': {'status': 'ready', 'engine': 'neural', 'voice': voice, 'textHash': digest,
-                               'sampleRate': SAMPLE_RATE, 'chunkCount': len(raw_chunks), 'requestCharacters': billed}}
+                               'sampleRate': SAMPLE_RATE, 'chunkCount': len(raw_chunks),
+                               'wordClipCount': len(set(word_audio['clips'].values())),
+                               'requestCharacters': billed + word_billed, 'wordRequestCharacters': word_billed}}
     (directory / 'audio.wav').write_bytes(wav_data)
     for name, data in [('timings.json', timings), ('speech-marks.json', raw_chunks)]:
         (directory / name).write_text(json.dumps(data, ensure_ascii=False, indent=2))
@@ -171,8 +232,25 @@ def generate(passage, output_root, polly, voice='Stephen', force=False):
     return manifest, directory, False
 
 
-def publish(manifest, directory, s3, bucket):
+def publish_word_clips(manifest, output_root, s3, bucket):
+    """Upload this passage's word clips that the shared bucket doesn't have yet."""
+    voice = manifest['wordAudio']['voice']
+    for clip_id in sorted(set(manifest['wordAudio']['clips'].values())):
+        key = word_clip_key(voice, clip_id)
+        if _remote_exists(s3, bucket, key):
+            continue
+        path = Path(output_root) / key
+        if not path.exists():
+            raise ValueError(f'Word clip {clip_id} is missing locally and in the bucket')
+        s3.upload_file(str(path), bucket, key,
+                       ExtraArgs={'ContentType': 'audio/mpeg', 'CacheControl': 'public,max-age=31536000,immutable',
+                                  'Metadata': {'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}})
+
+
+def publish(manifest, directory, s3, bucket, output_root=None):
     prefix = f"generated/{manifest['id']}/{manifest['assetVersion']}"
+    # Word clips are uploaded before the manifest that refers to them.
+    publish_word_clips(manifest, output_root if output_root is not None else Path(directory).parent.parent, s3, bucket)
     for filename, content_type in [('audio.wav', 'audio/wav'), ('timings.json', 'application/json'), ('speech-marks.json', 'application/json'), ('manifest.json', 'application/json')]:
         path = Path(directory) / filename
         s3.upload_file(str(path), bucket, f'{prefix}/{filename}',
@@ -223,6 +301,10 @@ def cached_manifest(passage, voice, s3, bucket):
             return None
         if not manifest['tokens'] or len(manifest['tokens']) != len(manifest['timings']):
             return None
+        clips = manifest['wordAudio']['clips']
+        if manifest['wordAudio']['baseUrl'] != f'/{WORDS_PREFIX}/{quote(voice, safe="")}/' \
+                or set(clips) != {token['id'] for token in manifest['tokens']}:
+            return None
         audio = s3.head_object(Bucket=bucket, Key=f'{prefix}/audio.wav')
         if audio['ContentLength'] <= 44 or audio.get('Metadata', {}).get('sha256') != manifest['audio']['sha256']:
             return None
@@ -249,8 +331,8 @@ def prepare(passage, output_root, polly, s3=None, bucket=None, voice='Stephen', 
             publish_current(manifest, url, s3, bucket)
             return {'manifest': manifest, 'directory': None, 'cached': True, 'cacheSource': 's3',
                     'manifestUrl': url, 'synthesisRequestCharacters': 0}
-    manifest, directory, cached = generate(passage, output_root, polly, voice=voice, force=force)
-    url = publish(manifest, directory, s3, bucket) if bucket else None
+    manifest, directory, cached = generate(passage, output_root, polly, voice=voice, force=force, s3=s3, bucket=bucket)
+    url = publish(manifest, directory, s3, bucket, output_root) if bucket else None
     if bucket:
         publish_current(manifest, url, s3, bucket)
     return {'manifest': manifest, 'directory': directory, 'cached': cached,

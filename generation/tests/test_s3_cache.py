@@ -70,6 +70,25 @@ class CacheTests(unittest.TestCase):
         self.assertEqual(first['manifestUrl'], second['manifestUrl'])
         self.assertEqual(len(self.polly.calls), calls)
 
+    def test_word_clips_are_uploaded_once_and_shared_by_a_fresh_lambda(self):
+        first = self.run_prepare()
+        clip_keys = [k for k in self.store.objects if k.startswith('generated/words/Stephen/')]
+        self.assertEqual(len(clip_keys), first['manifest']['generation']['wordClipCount'])
+        other = passage('Hello world again, friend.')
+        other['id'] = 'other'
+        polly = FakePolly()
+        with tempfile.TemporaryDirectory() as fresh:
+            prepare(other, fresh, polly, self.store, 'bucket')
+        self.assertEqual(sorted(c['Text'] for c in polly.calls if c['OutputFormat'] == 'mp3'), ['friend'])
+
+    def test_manifest_without_word_clips_is_not_reused(self):
+        self.run_prepare()
+        key = cache_key(passage(), 'Stephen')
+        stored = json.loads(self.store.objects[key]['body'])
+        del stored['wordAudio']
+        self.store.objects[key]['body'] = json.dumps(stored).encode()
+        self.assertIsNone(cached_manifest(passage(), 'Stephen', self.store, 'bucket'))
+
     def test_text_revision_voice_and_pipeline_settings_invalidate_cache(self):
         self.run_prepare()
         for change in ('text', 'revision', 'voice', 'settings'):
