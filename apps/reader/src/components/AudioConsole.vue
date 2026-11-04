@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { SPEED_OPTIONS } from '../lib/speedSuggestion.js';
 
 const props = defineProps({
   disabled: { type: Boolean, default: false },
@@ -10,6 +11,8 @@ const props = defineProps({
   playbackRate: { type: Number, default: 1 },
   // Sentence replay needs word timings; hidden/disabled when unavailable.
   canReplaySentence: { type: Boolean, default: false },
+  // The hover tooltip would sit behind the speed suggestion, which is in the same spot.
+  speedTipOpen: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['toggle-play', 'restart', 'replay-sentence', 'seek', 'volume-change', 'speed-change']);
@@ -87,26 +90,29 @@ function formatTime(seconds) {
           @input="emit('volume-change', Number($event.target.value))"
         />
       </label>
-      <label class="speed-control has-tooltip" data-tooltip="Playback speed">
-        <span>Speed</span>
-        <select
-          :value="playbackRate"
-          :disabled="disabled"
-          aria-label="Playback speed"
-          @change="emit('speed-change', Number($event.target.value))"
-        >
-          <option :value="0.75">0.75×</option>
-          <option :value="1">1×</option>
-          <option :value="1.25">1.25×</option>
-          <option :value="1.5">1.5×</option>
-          <option :value="2">2×</option>
-        </select>
-      </label>
+      <div class="speed-anchor">
+        <label class="speed-control" :class="{ 'has-tooltip': !speedTipOpen }" data-tooltip="Playback speed">
+          <span>Speed</span>
+          <select
+            :value="playbackRate"
+            :disabled="disabled"
+            aria-label="Playback speed"
+            @change="emit('speed-change', Number($event.target.value))"
+          >
+            <option v-for="speed in SPEED_OPTIONS" :key="speed" :value="speed">{{ speed }}×</option>
+          </select>
+        </label>
+        <slot name="speed-tip" />
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
+.speed-anchor {
+  position: relative;
+}
+
 /* Hover/focus tooltips for the audio controls. Driven by data-tooltip so the
    same label is announced visually; aria-label still carries it to screen
    readers. Shown on hover and on keyboard focus, and suppressed when the

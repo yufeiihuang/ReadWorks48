@@ -22,6 +22,8 @@ Audio currentTime is the synchronization source of truth. All controls operate o
 
 Stephen Neural generation, chunk handling, timing conversion, validation, local caching, S3 publishing, and the builder command are implemented; see generation.md. ReadWorks JSON conversion and reader playback are implemented; see generation.md. The CDK stack now deploys private website/asset buckets, CloudFront with origin access control, an Express Lambda behind a read-only HTTP API, and an IAM-only Python generation function. The public reader and its API/assets share one HTTPS origin.
 
+Audio is generated at one speed for every grade; Polly's slower rates sounded poor in listening tests. Instead, a first-visit tip by the speed menu suggests a playback speed for the passage's grade. The API supplies the grade (`gradeId`, ReadWorks' `canonical_grade`), so existing audio doesn't need regenerating. Kindergarten through grade 4 are offered 0.5×, grades 5-8 are offered 0.75×, and high school stays at 1× with no tip (`apps/reader/src/lib/speedSuggestion.js`).
+
 ## Reader audio labels
 
 Keep narration type, provider, model, voice names, and generation infrastructure out of the student-facing UI. Retain those fields internally for processing and caching. Reader messages describe available actions, loading/errors, and incomplete highlighting without identifying whether a recording is human or synthesized.

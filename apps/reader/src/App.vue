@@ -4,8 +4,10 @@ import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
 import ReadingAppearance from './components/ReadingAppearance.vue';
 import ColorFocusPanel from './components/ColorFocusPanel.vue';
+import SpeedTip from './components/SpeedTip.vue';
 import { findActiveToken, findLastStartedToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
 import { loadGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
+import { loadGradeId, suggestSpeed } from './lib/speedSuggestion.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
 import { useFollowAlong } from './composables/useFollowAlong.js';
 import { useColorFocus } from './composables/useColorFocus.js';
@@ -130,6 +132,26 @@ const hasAudio = computed(() => Boolean(passage.value?.audio?.url));
 const reload = () => window.location.reload();
 const printPassage = () => window.print();
 const wordCount = computed(() => passage.value?.paragraphs.reduce((count, p) => count + p.text.trim().split(/\s+/).length, 0) || 0);
+// A first-visit tip, remembered per browser once the student answers it. Playing without
+// answering only closes it for now, so it doesn't sit over the text being read.
+const gradeId = ref(null);
+const speedTipClosed = ref((() => { try { return localStorage.getItem('soundworks.speedTipSeen') === 'true'; } catch { return false; } })());
+const speedSuggestion = computed(() => (speedTipClosed.value || player.state.status !== 'ready'
+  ? null
+  : suggestSpeed(gradeId.value)));
+function answerSpeedTip() {
+  speedTipClosed.value = true;
+  try { localStorage.setItem('soundworks.speedTipSeen', 'true'); } catch {}
+}
+function acceptSpeedSuggestion() {
+  player.setPlaybackRate(speedSuggestion.value.speed);
+  answerSpeedTip();
+}
+function changeSpeed(speed) {
+  player.setPlaybackRate(speed);
+  answerSpeedTip();
+}
+watch(() => player.state.playing, playing => { if (playing) speedTipClosed.value = true; });
 async function loadPassage(id) {
   if (referencePassages[id]) return (await referencePassages[id]()).default;
   try {
@@ -146,6 +168,7 @@ onMounted(async () => {
   try {
     passage.value = await loadPassage(passageId);
     player.load(passage.value.audio?.url);
+    if (passage.value.audio?.url) loadGradeId(passage.value).then(id => { gradeId.value = id; });
   } catch (cause) { error.value = cause.message; }
 });
 </script>
@@ -182,13 +205,19 @@ onMounted(async () => {
             :volume="player.state.volume"
             :playback-rate="player.state.playbackRate"
             :can-replay-sentence="canReplaySentence"
+            :speed-tip-open="Boolean(speedSuggestion)"
             @toggle-play="player.toggle"
             @restart="restartPassage"
             @replay-sentence="replaySentence"
             @seek="seekPassage"
             @volume-change="player.setVolume"
-            @speed-change="player.setPlaybackRate"
-          />
+            @speed-change="changeSpeed"
+          >
+            <template #speed-tip>
+              <SpeedTip v-if="speedSuggestion" :question="speedSuggestion.question" :speed="speedSuggestion.speed" @accept="acceptSpeedSuggestion" @dismiss="answerSpeedTip" />
+            </template>
+          </AudioConsole>
+          <span class="sr-only" role="status"><template v-if="speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template></span>
           <p v-if="finishedPart !== null || generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings" class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
