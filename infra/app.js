@@ -8,6 +8,8 @@ import { Function as LambdaFunction, Runtime, Code } from 'aws-cdk-lib/aws-lambd
 import { HttpApi, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
+import { StateMachine, DefinitionBody, Choice, Condition, Wait, WaitTime, Succeed, Fail } from 'aws-cdk-lib/aws-stepfunctions';
+import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
@@ -54,6 +56,63 @@ assets.grantRead(generator, 'passages/*');
 assets.addEventNotification(EventType.OBJECT_CREATED, new LambdaDestination(generator),
   { prefix: 'passages/', suffix: '.json' });
 generator.addToRolePolicy(new PolicyStatement({ actions: ['polly:SynthesizeSpeech'], resources: ['*'] }));
+// Human recordings are prepared asynchronously: Lambda starts/checks work, while
+// Step Functions waits between polls. No warm worker or long-running Lambda is needed.
+const humanTask = new LambdaFunction(stack, 'HumanAudioPreparation', {
+  runtime: Runtime.PYTHON_3_14,
+  handler: 'human_handler.handler',
+  code: Code.fromAsset(resolve(root, 'generation'), { exclude: ['.venv', '__pycache__', 'output'] }),
+  memorySize: 512,
+  timeout: Duration.seconds(120),
+  environment: { ASSET_BUCKET: assets.bucketName },
+});
+assets.grantRead(humanTask, 'human-passages/*');
+assets.grantRead(humanTask, 'human-input/*');
+assets.grantRead(humanTask, 'human-transcripts/*');
+assets.grantPut(humanTask, 'human-transcripts/*');
+assets.grantRead(humanTask, 'generated/*');
+assets.grantPut(humanTask, 'generated/*');
+humanTask.addToRolePolicy(new PolicyStatement({
+  actions: ['transcribe:GetTranscriptionJob'],
+  resources: [stack.formatArn({ service: 'transcribe', resource: 'transcription-job', resourceName: 'soundworks-human-*' })],
+}));
+// StartTranscriptionJob does not support job-ARN resource scoping. Constrain
+// its required wildcard grant to our private output bucket and transcript prefix.
+humanTask.addToRolePolicy(new PolicyStatement({
+  actions: ['transcribe:StartTranscriptionJob'], resources: ['*'],
+  conditions: {
+    StringEquals: { 'transcribe:OutputBucketName': assets.bucketName },
+    StringLike: { 'transcribe:OutputKey': 'human-transcripts/*' },
+  },
+}));
+const advanceHuman = new LambdaInvoke(stack, 'AdvanceHumanAudio', {
+  lambdaFunction: humanTask, outputPath: '$.Payload',
+});
+advanceHuman.addRetry({ errors: ['ClientError', 'EndpointConnectionError', 'ReadTimeoutError'],
+  interval: Duration.seconds(10), maxAttempts: 3, backoffRate: 2 });
+const humanReady = new Succeed(stack, 'HumanAudioReady');
+const humanSuperseded = new Succeed(stack, 'HumanSourceUpdated');
+const humanFailed = new Fail(stack, 'HumanTranscriptionFailed', { cause: 'Transcribe job failed; inspect workflow output for FailureReason' });
+const waitForHuman = new Wait(stack, 'WaitForHumanTranscript', { time: WaitTime.duration(Duration.seconds(30)) });
+const humanResult = new Choice(stack, 'HumanAudioStatus')
+  .when(Condition.stringEquals('$.status', 'ready'), humanReady)
+  .when(Condition.stringEquals('$.status', 'superseded'), humanSuperseded)
+  .when(Condition.stringEquals('$.status', 'failed'), humanFailed)
+  .otherwise(waitForHuman.next(advanceHuman));
+const humanWorkflow = new StateMachine(stack, 'HumanAudioWorkflow', {
+  definitionBody: DefinitionBody.fromChainable(advanceHuman.next(humanResult)),
+  timeout: Duration.minutes(30),
+});
+const humanStarter = new LambdaFunction(stack, 'StartHumanAudio', {
+  runtime: Runtime.PYTHON_3_14, handler: 'human_start.handler',
+  code: Code.fromAsset(resolve(root, 'generation'), { exclude: ['.venv', '__pycache__', 'output'] }),
+  memorySize: 128, timeout: Duration.seconds(30),
+  environment: { ASSET_BUCKET: assets.bucketName, HUMAN_WORKFLOW_ARN: humanWorkflow.stateMachineArn },
+});
+humanWorkflow.grantStartExecution(humanStarter);
+assets.addEventNotification(EventType.OBJECT_CREATED, new LambdaDestination(humanStarter),
+  { prefix: 'human-passages/', suffix: '.json' });
+const generatedOrigin = S3BucketOrigin.withOriginAccessControl(assets);
 const distribution = new Distribution(stack, 'ReaderDistribution', {
   defaultRootObject: 'index.html',
   defaultBehavior: {
@@ -70,8 +129,14 @@ const distribution = new Distribution(stack, 'ReaderDistribution', {
       cachePolicy: CachePolicy.CACHING_DISABLED,
       originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
     },
+    '/generated/*/current.json': {
+      origin: generatedOrigin,
+      viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: CachePolicy.CACHING_DISABLED,
+      compress: true,
+    },
     '/generated/*': {
-      origin: S3BucketOrigin.withOriginAccessControl(assets),
+      origin: generatedOrigin,
       viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       cachePolicy: CachePolicy.CACHING_OPTIMIZED,
       compress: true,
@@ -90,4 +155,6 @@ for (const [name, value] of Object.entries({
   PassageAssetsBucket: assets.bucketName,
   WebsiteBucket: website.bucketName,
   GenerationFunctionName: generator.functionName,
+  HumanAudioStarterName: humanStarter.functionName,
+  HumanAudioWorkflowArn: humanWorkflow.stateMachineArn,
 })) new CfnOutput(stack, name, { value });

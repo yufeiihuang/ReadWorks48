@@ -16,7 +16,8 @@ function localGeneration() {
         const path = (req.url || '').split('?')[0];
         const words = path.match(/^\/generated\/words\/([A-Za-z0-9_-]+)\/([a-f0-9]{20}\.mp3)$/);
         const asset = path.match(/^\/generated\/([A-Za-z0-9_-]+)\/([a-f0-9]{20})-[a-f0-9]{12}\/([a-z-]+\.(?:json|wav))$/);
-        const file = words ? join(localOutput, 'generated', 'words', words[1], words[2])
+        const human = path.match(/^\/generated\/([A-Za-z0-9_-]+)\/human-([a-f0-9]{24})\/(audio\.mp3|manifest\.json|timings\.json|alignment-report\.json)$/);
+        const file = human ? join(localOutput, 'human', human[1], human[2], human[3]) : words ? join(localOutput, 'generated', 'words', words[1], words[2])
           : asset ? join(localOutput, asset[1], asset[2], asset[3]) : null;
         let size = 0;
         try { size = file ? statSync(file).size : 0; } catch {}
@@ -25,8 +26,13 @@ function localGeneration() {
         const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
         if (range) {
           // Audio elements seek with range requests.
-          const start = range[1] ? Number(range[1]) : size - Number(range[2]);
+          const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
           const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+          if (start < 0 || start >= size || end < start) {
+            res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+            res.end();
+            return;
+          }
           res.writeHead(206, { 'Content-Type': type, 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Accept-Ranges': 'bytes' });
           createReadStream(file, { start, end }).pipe(res);
           return;
