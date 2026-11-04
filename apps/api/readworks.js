@@ -17,6 +17,7 @@ export function toReaderPassage(product) {
     title: product.title,
     language,
     source: { provider: 'readworks', uuid: product.uuid, au: product.au },
+    gradeId: product.canonical_grade ?? null,
     paragraphs: lines.map((text, index) => ({ id: `p${index + 1}`, text })),
     tokens: [],
     audio: null,

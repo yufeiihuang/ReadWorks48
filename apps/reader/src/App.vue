@@ -2,8 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
+import SpeedTip from './components/SpeedTip.vue';
 import { findActiveToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
 import { loadGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
+import { loadGradeId, suggestSpeed } from './lib/speedSuggestion.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
 import { useFollowAlong } from './composables/useFollowAlong.js';
 // Playback test passage with ReadWorks' existing recording; open /?passage=pride-and-prejudice.
@@ -104,6 +106,26 @@ const hasAudio = computed(() => Boolean(passage.value?.audio?.url));
 const reload = () => window.location.reload();
 const printPassage = () => window.print();
 const wordCount = computed(() => passage.value?.paragraphs.reduce((count, p) => count + p.text.trim().split(/\s+/).length, 0) || 0);
+// A first-visit tip, remembered per browser once the student answers it. Playing without
+// answering only closes it for now, so it doesn't sit over the text being read.
+const gradeId = ref(null);
+const speedTipClosed = ref((() => { try { return localStorage.getItem('soundworks.speedTipSeen') === 'true'; } catch { return false; } })());
+const speedSuggestion = computed(() => (speedTipClosed.value || player.state.status !== 'ready'
+  ? null
+  : suggestSpeed(gradeId.value)));
+function answerSpeedTip() {
+  speedTipClosed.value = true;
+  try { localStorage.setItem('soundworks.speedTipSeen', 'true'); } catch {}
+}
+function acceptSpeedSuggestion() {
+  player.setPlaybackRate(speedSuggestion.value.speed);
+  answerSpeedTip();
+}
+function changeSpeed(speed) {
+  player.setPlaybackRate(speed);
+  answerSpeedTip();
+}
+watch(() => player.state.playing, playing => { if (playing) speedTipClosed.value = true; });
 async function loadPassage(id) {
   if (referencePassages[id]) return (await referencePassages[id]()).default;
   try {
@@ -120,6 +142,7 @@ onMounted(async () => {
   try {
     passage.value = await loadPassage(passageId);
     player.load(passage.value.audio?.url);
+    if (passage.value.audio?.url) loadGradeId(passage.value).then(id => { gradeId.value = id; });
   } catch (cause) { error.value = cause.message; }
 });
 </script>
@@ -155,13 +178,18 @@ onMounted(async () => {
             :volume="player.state.volume"
             :playback-rate="player.state.playbackRate"
             :can-replay-sentence="canReplaySentence"
+            :speed-tip-open="Boolean(speedSuggestion)"
             @toggle-play="player.toggle"
             @restart="restartPassage"
             @replay-sentence="replaySentence"
             @seek="seekPassage"
             @volume-change="player.setVolume"
-            @speed-change="player.setPlaybackRate"
-          />
+            @speed-change="changeSpeed"
+          >
+            <template #speed-tip>
+              <SpeedTip v-if="speedSuggestion" :question="speedSuggestion.question" :speed="speedSuggestion.speed" @accept="acceptSpeedSuggestion" @dismiss="answerSpeedTip" />
+            </template>
+          </AudioConsole>
           <p class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
@@ -172,6 +200,7 @@ onMounted(async () => {
               <template v-else-if="hasIncompleteTimings">Select a word to hear it again. Some words are not available for highlighting.</template>
               <template v-else-if="hasTimings">Select any word to hear it again.</template>
               <template v-else>Press play to listen. Word highlighting is not available for this passage.</template>
+              <span v-if="speedSuggestion" class="sr-only"> {{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</span>
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>

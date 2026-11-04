@@ -4,7 +4,7 @@ import app from '../server.js';
 
 const UUID = '2b781dab-4521-40d2-a9b6-ad5f2bb0ba98';
 const product = {
-  uuid: UUID, title: "Let's Meet", lang: 'EN', au: 'audio_id', features: ['au'],
+  uuid: UUID, title: "Let's Meet", lang: 'EN', au: 'audio_id', features: ['au'], canonical_grade: 17,
   text: 'First paragraph.\n\n  Second paragraph.\n',
   answerMapA: { 1: { 2: 3 } }, questionSets: { 1: {} },
 };
@@ -28,6 +28,7 @@ test('returns an ungenerated ReadWorks passage with display fields only', async 
   assert.equal(body.id, UUID);
   assert.equal(body.language, 'en-US');
   assert.equal(body.audio, null);
+  assert.equal(body.gradeId, 17);
   assert.deepEqual(body.tokens, []);
   assert.equal(body.generation.status, 'not_generated');
   assert.equal(body.answerMapA, undefined);

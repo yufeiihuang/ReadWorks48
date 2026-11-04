@@ -46,6 +46,7 @@ export default defineConfig({
   } } },
   server: { proxy: {
     '/api': 'http://127.0.0.1:3001',
-    '/generated': { target: 'https://d1381qenwhm2qw.cloudfront.net', changeOrigin: true },
+    // Generated audio is per AWS account. Set GENERATED_ORIGIN to use your own deployed site.
+    '/generated': { target: process.env.GENERATED_ORIGIN || 'https://d1381qenwhm2qw.cloudfront.net', changeOrigin: true },
   } },
 });
