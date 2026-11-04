@@ -70,13 +70,11 @@ Details: [architecture](architecture.md) · [generation](generation.md) · [huma
 | 4 | 0:55 | Pause. Set **Tap a word to → Hear just that word**. Tap **"sunrise"**. | "For decoding practice, a student can hear one word on its own. The passage waits where it was." |
 | 5 | 1:15 | Click the **Highlight** switch off, then on. Press **Tab** once (an amber outline shows focus is on the passage), press **→** a few times, then **Enter**. | "Students who find the moving highlight distracting can turn it off. Everything works from the keyboard: arrow keys move word by word, screen readers announce each one, and Enter reads from there. Screen readers hear the passage as normal sentences, not 49 separate buttons." |
 | 6 | 1:45 | Text size: the biggest **Aa**. **Dyslexia font** on. Press **Start over**. | "Larger text and a dyslexia-friendly font. The page scrolls by itself to keep the spoken word in view, and the audio bar stays on top." |
-| 7 | 2:15 | Text size back to the second **Aa** (100%), Dyslexia font off. Turn on **Color Focus** (header button). Press **Start over**. When it stops after paragraph 1, click **Keep going**. Click **Cream**. | "Color Focus is for students with attention difficulties. It calms the page to one column with a soft tint, highlights the sentence being read, dims other paragraphs, and stops after each paragraph so they can take a breath. 'Part 1 of 2 done.' The student decides when to keep going. Tints include blue, green and cream." |
+| 7 | 2:15 | Text size back to the second **Aa** (100%), Dyslexia font off. Turn on the **Color Focus** switch (bottom of the reading settings). Press **Start over**. When it stops after paragraph 1, click **Keep going**. Click **Cream**. | "Color Focus is for students with attention difficulties. It puts a soft tint behind the passage, highlights the sentence being read, dims other paragraphs, and stops after each paragraph so they can take a breath. 'Part 1 of 2 done.' The student decides when to keep going. Tints include blue, green and cream." |
 | 8 | 2:55 | Turn **Color Focus** off. Open https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker-qa in a new tab. Wait for "Are you in 1st grade?", click **Change to 0.5×**, then Play for a few seconds. | "This is a real ReadWorks passage read by ReadWorks' own human narrator. The site knows it's a 1st-grade passage and suggests a slower speed, without making a new recording. The highlighting comes from Amazon Transcribe matched to the approved text, run by our Step Functions workflow. The note says some words aren't highlighted; that's honest: 356 of 360 are." |
 | 9 | 3:30 | Pause. | Hand over to the impact speaker. |
 
 **If you're running long,** drop step 6 first, then the keyboard part of step 5.
-
-**If PR #18 merges first:** Color Focus moves from the header into the bottom of the reading settings panel, and its checkboxes become On/Off switches. Update step 7's clicks.
 
 **If something goes wrong**
 
