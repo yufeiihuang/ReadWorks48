@@ -59,7 +59,7 @@ svg.filled { fill: currentColor; }
 .highlight-switch:focus-visible + .highlight-track { outline: 3px solid #db9d22; outline-offset: 3px; }
 .highlight-state { width: 26px; }
 @media (prefers-reduced-motion: reduce) { .highlight-track, .highlight-thumb { transition: none; } }
-.passage { font-size: 17px; color: #202529; line-height: 1.8; text-align: justify; }
+.passage { font-family: var(--reading-font-family, inherit); font-size: calc(17px * var(--reading-scale, 1)); color: #202529; line-height: 1.8; text-align: justify; }
 .passage p { margin: 0 0 24px; }
 .passage-credit { border-top: 1px solid #edf0f0; padding-top: 20px; color: #74808a; font-size: 12px; margin-top: 40px; }
 .details { align-self: start; background: #f5f7f7; border: 1px solid #e1e6e8; padding: 22px 18px; font-size: 14px; line-height: 1.5; }
@@ -75,7 +75,7 @@ footer span { margin-left: 18px; }
 .error { max-width: 1100px; margin: 40px auto; padding: 24px; }
 .projector .site-header, .projector .details, .projector footer { display: none; }
 .projector .article-layout { grid-template-columns: 1fr; max-width: 1000px; }
-.projector .passage { font-size: 28px; }
+.projector .passage { font-size: calc(28px * var(--reading-scale, 1)); }
 @media (max-width: 950px) { .audio-player { border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } }
 @media (max-width: 760px) { .site-header { padding: 18px 17px; } .brand { font-size: 27px; } .preview-label { font-size: 11px; } .heading-inner { padding: 18px 17px 0; } .article-layout { grid-template-columns: 1fr; gap: 60px; padding: 0 17px 40px; } .article-tabs { gap: 16px; } .article-tabs > * { padding-left: 6px; padding-right: 6px; font-size: 16px; } .audio-toolbar { margin-top: 0; } .audio-player { flex-wrap: wrap; border-radius: 18px; } .audio-progress { order: 1; flex-basis: 100%; } .volume-control { margin-left: auto; } .audio-status { margin-bottom: 24px; } .details { margin: 0 16px; } h1 { font-size: 29.75px; } }
 @media print { .site-header, .article-actions, .article-tabs, .audio-toolbar, .audio-status, .details, footer, .follow-return, .word-action, .reading-options { display: none; } .article-layout { display: block; padding: 24px; } .article-heading { background: white; border: 0; } }

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AudioConsole from './components/AudioConsole.vue';
 import PassageText from './components/PassageText.vue';
+import ReadingAppearance from './components/ReadingAppearance.vue';
 import { findActiveToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
 import { loadGeneratedPassage } from './lib/generatedPassage.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
@@ -23,6 +24,18 @@ const highlightEnabled = ref((() => {
 watch(highlightEnabled, enabled => {
   try { localStorage.setItem('soundworks.highlightEnabled', String(enabled)); } catch {}
 });
+const appearance = (() => {
+  try { return JSON.parse(localStorage.getItem('soundworks.readingAppearance')) || {}; } catch { return {}; }
+})();
+const fontScale = ref([0.75, 1, 1.25, 1.5, 1.75, 2].includes(appearance.scale) ? appearance.scale : 1);
+const dyslexiaFont = ref(appearance.dyslexia === true);
+watch([fontScale, dyslexiaFont], ([scale, dyslexia]) => {
+  try { localStorage.setItem('soundworks.readingAppearance', JSON.stringify({ scale, dyslexia })); } catch {}
+});
+const readingStyle = computed(() => ({
+  '--reading-scale': fontScale.value,
+  '--reading-font-family': dyslexiaFont.value ? 'OpenDyslexic, sans-serif' : 'inherit',
+}));
 const error = ref('');
 const saved = ref(false);
 const projector = ref(false);
@@ -114,7 +127,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div :class="{ projector }">
+  <div :class="{ projector }" :style="readingStyle">
     <header class="site-header">
       <a class="brand" href="/" aria-label="ReadWorks SoundWorks home">Read<span>Works</span><sup>®</sup></a>
       <span class="preview-label">SoundWorks · Reader preview</span>
@@ -177,6 +190,7 @@ onMounted(async () => {
               <span class="highlight-state" aria-hidden="true">{{ highlightEnabled ? 'On' : 'Off' }}</span>
             </label>
           </div>
+          <ReadingAppearance v-model:scale="fontScale" v-model:dyslexia="dyslexiaFont" />
           <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="passage.tokens || []" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" @replay="selectWord" />
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
