@@ -146,3 +146,7 @@ PR #17 deployed successfully through GitHub Actions to the existing workshop sta
 Live preview: https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker-qa
 
 The production sample remains a timing-coverage preview, not a claim that acoustic boundary accuracy has been independently measured for every word. A future first-time-transcription smoke run should use a small approved recording and an explicitly accepted Transcribe charge.
+
+### Compound-word timestamps
+
+Aligner version 5 recovers QA-verified compounds when consecutive source words exactly concatenate to one transcription word between exact context anchors (for example, “high road” and “highroad”). The recorded span is divided in proportion to normalized character length. These boundaries are estimates, recorded as `precision: estimated`, `matchMethod: qa-compound-split`, and `estimatedTokenIds` in the private review report; they are not presented as acoustically measured word boundaries. Introductions, mismatched spellings, unverified recordings, and missing words are not filled by this rule. The version bump makes cached transcripts realign without another transcription charge when the passage is queued again.
