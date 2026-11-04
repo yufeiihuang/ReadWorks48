@@ -30,6 +30,8 @@ svg.filled { fill: currentColor; }
 .follow-return:hover { background: #235b6e; }
 .audio-player { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #f1f3f4; border-radius: 28px; padding: 8px 14px; min-height: 52px; width: 100%; }
 .audio-player .control-button { border: none; padding: 0; display: grid; place-items: center; background: none; color: #345d6b; flex: 0 0 28px; min-height: 32px; }
+.audio-player .labeled-control { display: inline-flex; flex: 0 0 auto; gap: 5px; font-size: 12px; white-space: nowrap; padding: 0 3px; }
+.audio-player .labeled-control svg { width: 18px; height: 18px; }
 .audio-player .control-button:disabled { color: #68737a; }
 .audio-player .control-button svg { width: 21px; height: 21px; }
 .audio-time { font-size: 14px; white-space: nowrap; color: #52616a; }
