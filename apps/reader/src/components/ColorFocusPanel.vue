@@ -27,15 +27,15 @@ const tintLabels = { blue: 'Blue', green: 'Green', cream: 'Cream', none: 'None' 
           </label>
         </div>
       </fieldset>
-      <p v-if="settings.on && hasTimings && partCount > 1" class="part-progress">
-        <span>Part {{ currentPart + 1 }} of {{ partCount }}</span>
-        <span v-if="partCount <= 20" class="part-dots" aria-hidden="true"><i v-for="n in partCount" :key="n" :class="{ done: n - 1 < currentPart, current: n - 1 === currentPart }"></i></span>
-      </p>
     </div>
     <div v-if="settings.on && hasTimings" class="focus-row">
       <SettingSwitch v-model="settings.guide" label="Highlight sentence" />
       <SettingSwitch v-model="settings.dim" label="Dim other paragraphs" />
       <SettingSwitch v-model="settings.pauseParts" label="Pause after each paragraph" />
+      <p v-if="partCount > 1" class="part-progress">
+        <span>Part {{ currentPart + 1 }} of {{ partCount }}</span>
+        <span v-if="partCount <= 20" class="part-dots" aria-hidden="true"><i v-for="n in partCount" :key="n" :class="{ done: n - 1 < currentPart, current: n - 1 === currentPart }"></i></span>
+      </p>
     </div>
   </div>
 </template>
