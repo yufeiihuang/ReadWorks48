@@ -193,8 +193,9 @@ class ValidationTests(unittest.TestCase):
         text = '"Brrr!" she said.'
         good = [{'original': 'Brrr', 'start': text.index('Brrr'), 'end': text.index('Brrr') + 4, 'pronunciation': 'burr'}]
         self.assertEqual(len(validate_suggestions(text, good)), 1)
-        # wrong offset -> dropped
-        bad = [{'original': 'Brrr', 'start': 0, 'end': 4, 'pronunciation': 'burr'}]
+        # A word the model claims is present but that does not occur near the
+        # reported offset (or anywhere) -> dropped, no false substitution.
+        bad = [{'original': 'Zzz', 'start': 0, 'end': 3, 'pronunciation': 'zee'}]
         self.assertEqual(validate_suggestions(text, bad), [])
 
     def test_rejects_injection_pronunciations(self):
@@ -207,7 +208,9 @@ class ValidationTests(unittest.TestCase):
         text = 'Brrr brrr!'
         multi = [{'original': 'Brrr brrr', 'start': 0, 'end': 9, 'pronunciation': 'burr'}]
         self.assertEqual(validate_suggestions(text, multi), [])
-        oob = [{'original': 'Brrr', 'start': 0, 'end': 999, 'pronunciation': 'burr'}]
+        # Garbage offsets for a word that is NOT present near them stay rejected
+        # (offset recovery only snaps to a real, nearby, unambiguous occurrence).
+        oob = [{'original': 'Zzz', 'start': 0, 'end': 999, 'pronunciation': 'zee'}]
         self.assertEqual(validate_suggestions(text, oob), [])
 
     def test_drops_overlaps_keeping_earliest(self):
@@ -221,6 +224,54 @@ class ValidationTests(unittest.TestCase):
         text = 'Brrr!'
         s = [{'original': 'Brrr', 'start': True, 'end': 4, 'pronunciation': 'burr'}]
         self.assertEqual(validate_suggestions(text, s), [])
+
+
+# --------------------------------------------------------------------------- #
+# Offset recovery: snap slightly-wrong model offsets to the real word span
+# --------------------------------------------------------------------------- #
+class OffsetRecoveryTests(unittest.TestCase):
+    def test_curly_quote_offset_off_by_one_is_recovered(self):
+        # The real demo case: a leading curly quote makes the model report
+        # start=0 while "Brrr" is actually at index 1.
+        text = '\u201cBrrr! It is chilly today,\u201d she said.'
+        self.assertEqual(text[1:5], 'Brrr')  # sanity
+        s = [{'original': 'Brrr', 'start': 0, 'end': 4, 'pronunciation': 'burr'}]
+        out = validate_suggestions(text, s)
+        self.assertEqual(out, [{'start': 1, 'end': 5, 'original': 'Brrr', 'pronunciation': 'burr'}])
+
+    def test_offset_off_by_a_few_is_recovered(self):
+        text = 'The dog went Woof! loudly.'
+        real = text.index('Woof')  # 13
+        s = [{'original': 'Woof', 'start': real + 3, 'end': real + 7, 'pronunciation': 'wuff'}]
+        out = validate_suggestions(text, s)
+        self.assertEqual([(o['start'], o['end']) for o in out], [(real, real + 4)])
+
+    def test_exact_offsets_still_accepted_unchanged(self):
+        text = 'Say Vrooom now.'  # unique onomatopoeia, exact offsets
+        i = text.index('Vrooom')
+        s = [{'original': 'Vrooom', 'start': i, 'end': i + 6, 'pronunciation': 'vroom'}]
+        out = validate_suggestions(text, s)
+        self.assertEqual(out, [{'start': i, 'end': i + 6, 'original': 'Vrooom', 'pronunciation': 'vroom'}])
+
+    def test_ambiguous_match_in_window_is_rejected(self):
+        # Two occurrences of the word within the search window -> cannot pick one.
+        text = 'Brrr Brrr!'  # indices 0 and 5, both within the +/-8 window of 0
+        s = [{'original': 'Brrr', 'start': 2, 'end': 6, 'pronunciation': 'burr'}]
+        self.assertEqual(validate_suggestions(text, s), [])
+
+    def test_match_outside_window_is_rejected(self):
+        # The only occurrence is far from the reported offset -> not recovered.
+        text = 'x' * 40 + 'Brrr!'  # "Brrr" at index 40, reported start 0
+        s = [{'original': 'Brrr', 'start': 0, 'end': 4, 'pronunciation': 'burr'}]
+        self.assertEqual(validate_suggestions(text, s), [])
+
+    def test_distant_second_occurrence_does_not_make_it_ambiguous(self):
+        # One occurrence near the offset, another far away -> still recovered,
+        # because only the near one is inside the window.
+        text = 'Brrr! ' + 'y' * 40 + ' Brrr'
+        s = [{'original': 'Brrr', 'start': 0, 'end': 4, 'pronunciation': 'burr'}]
+        out = validate_suggestions(text, s)
+        self.assertEqual([(o['start'], o['end']) for o in out], [(0, 4)])
 
 
 # --------------------------------------------------------------------------- #
