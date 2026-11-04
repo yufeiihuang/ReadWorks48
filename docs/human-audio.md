@@ -19,7 +19,7 @@ Eight exact matches with low ASR confidence and the recognition substitution `Wi
 
 Coverage measures how many displayed words have a timestamp, not independent acoustic timing accuracy. The source recording is the exact original MP3; SHA-256 verification prevents mismatching the cached transcript and audio bytes.
 
-The existing public demo remains at `https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker`. The improved QA result is a local review artifact until explicitly published; merging code does not transcribe or publish that copyrighted passage automatically.
+The improved QA preview is live at [the caretaker QA preview](https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker-qa). The earlier `park-caretaker` demo remains unchanged. The approved sample was explicitly queued after deployment; merging code does not automatically transcribe or publish passage content.
 
 ## Automatic AWS processing
 
@@ -113,7 +113,7 @@ Other options: `--cached-only` (queue mode), `--profile`, `--region` (default `u
 - Alignment assets: immutable version includes text/revision, attribution, recording hash, transcript contents, source URL, QA mode, and aligner version. Corrected transcript boundaries therefore get new URLs instead of overwriting cached timing files. The original MP3 is reused byte-for-byte; there is no Polly/ElevenLabs call in this workflow.
 - Private source/audio/transcript prefixes are not served by CloudFront. The public `generated/` assets must contain only approved demonstration/ReadWorks content. Do not commit full copyrighted source fixtures to GitHub.
 - Step Functions is billed per transition, with S3, Lambda, transcription, and delivery billed separately. Waiting avoids a paid Lambda invocation sitting idle for the transcription duration. There is no continuously running worker. Use a small representative batch before scaling.
-- The new workflow is tested locally with fake AWS clients and synthesized infrastructure. Real AWS transcription and workflow execution still need a sandbox smoke run after deployment; the cached local sample is not evidence of a new live Transcribe run.
+- The deployed workflow has passed two real S3-triggered cached-transcript executions, including a source revision update. First-time uncached job scheduling/polling is covered by unit tests and AWS permission checks; it has not yet been exercised with a new paid Transcribe job.
 
 Transcribe start permission uses the wildcard resource required by AWS, constrained to this bucket and the `human-transcripts/*` output prefix. Reading job status is restricted to the `soundworks-human-*` job names. See the [AWS authorization reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_transcribe.html).
 
@@ -128,3 +128,19 @@ npm test -w @soundworks/infra
 ```
 
 Tests cover QA/recognition confidence, bounded name recovery, introductions, repeated words, numeric phrases, UTF-16 offsets, invalid timestamps, cache reuse, actual audio hash checks, asynchronous polling, duplicate starts, failed jobs, source edits, concurrent pointer publication, and separate private source triggers. Browser verification checks click-to-seek and highlighting on the actual cached caretaker recording.
+
+## Verified AWS smoke run — November 4, 2026
+
+PR #17 deployed successfully through GitHub Actions to the existing workshop stack. A separate `park-caretaker-qa` source was queued with `qaVerified: true` and `cachedOnly: true`, using the approved original MP3 and its existing cached Transcribe result.
+
+- The S3 source upload started the Step Functions workflow and completed with `status: ready`.
+- Updating only the source revision from 1 to 2 triggered a second successful execution. It published a different immutable manifest and updated `current.json` without rebuilding the frontend.
+- Both versions contain 356 / 360 individually timed words. The four remaining words have missing/shared ASR boundaries.
+- The CloudFront-delivered MP3 SHA-256 matches the original recording. The completion pointer responds with `Cache-Control: no-cache,no-store`.
+- Browser playback reports 1:55 duration. Clicking the recovered `noise` token seeks the original recording and highlights that token correctly.
+- No new scoped Transcribe job existed after the first run. Both requests used the server-enforced cached-only guard, so no new transcription job was created.
+- The source, approved recording, cached transcript, report, and manifests stay outside GitHub. Temporary workshop credentials used for verification were removed afterward.
+
+Live preview: https://d1381qenwhm2qw.cloudfront.net/?passage=park-caretaker-qa
+
+The production sample remains a timing-coverage preview, not a claim that acoustic boundary accuracy has been independently measured for every word. A future first-time-transcription smoke run should use a small approved recording and an explicitly accepted Transcribe charge.
