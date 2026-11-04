@@ -85,7 +85,7 @@ Polly bills audio and speech marks separately. `generation.requestCharacters` su
 
 On November 3, 2026, Stephen Neural was confirmed available in `us-west-2`. Local generation and the deployed Lambda both generated the 49-word original garden passage successfully. The published sample manifest is:
 
-https://d1381qenwhm2qw.cloudfront.net/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json
+https://d1381qenwhm2qw.cloudfront.net/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json
 
 A separate 3,824-character input generated one recording with 630 word timings over two chunks. Local cache reuse was verified. Seven unit tests and three infrastructure tests passed. These are functional checks, not a measured perceptual timing or pronunciation score; listen to the samples before demo sign-off.
 

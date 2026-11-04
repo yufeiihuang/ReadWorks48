@@ -17,7 +17,7 @@ const referencePassages = { 'pride-and-prejudice': () => import('../../../shared
 // Reviewed demo recordings. A published current.json never replaces these; ?latest=1 previews it
 // (falling back to the pin), and promoting it means updating the pin here.
 const pinnedManifests = {
-  demo: '/generated/demo/efbf8d68f9ca6f777630-4386b7353988/manifest.json',
+  demo: '/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json',
   'park-caretaker': '/generated/park-caretaker/human-712a36cf65895354e6b551d5/manifest.json',
 };
 const passageId = new URLSearchParams(window.location.search).get('passage') || 'demo';
