@@ -32,8 +32,8 @@ const sizes = [0.75, 1, 1.25, 1.5, 1.75, 2];
 .reading-appearance { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 28px; font-size: 13px; }
 .text-size { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; color: #52616a; border: 0; padding: 0; margin: 0; min-width: 0; }
 .size-label { white-space: nowrap; }
-.size-options { display: flex; align-items: stretch; gap: 3px; }
-.size-option { position: relative; display: block; text-align: center; width: 52px; flex: 0 0 52px; height: 48px; padding: 0 5px; line-height: 0; border-radius: 5px; color: #345d6b; cursor: pointer; }
+.size-options { display: flex; align-items: stretch; gap: 0; }
+.size-option { position: relative; display: block; text-align: center; width: 44px; flex: 0 0 44px; height: 48px; padding: 0; line-height: 0; border-radius: 5px; color: #345d6b; cursor: pointer; }
 .size-option::before { content: ''; display: inline-block; height: 35px; vertical-align: baseline; }
 .size-option span { line-height: 1; vertical-align: baseline; }
 .size-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
