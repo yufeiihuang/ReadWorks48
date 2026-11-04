@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import SettingSwitch from './components/SettingSwitch.vue';
+import VocabularyActivity from './components/VocabularyActivity.vue';
 import VocabularyWord from './components/VocabularyWord.vue';
 import { useVocabulary } from './composables/useVocabulary.js';
 import { ensureTokens } from './lib/vocabulary.js';
@@ -288,6 +289,7 @@ onMounted(async () => {
             <PassageText :key="passage.assetVersion" :paragraphs="passage.paragraphs" :tokens="(passage.tokens || []).filter(t => t.paragraphId !== passage.narrationTitle?.id)" :active-token-id="highlightedTokenId" :replay-enabled="!audioUnavailable" :select-action="wordAction === 'say' ? 'hear that word' : 'read from that word'" :focus-paragraph-id="focusParagraphId" :sentence-highlight="focus.on && focus.guide" :reading-token-id="readingTokenId" :definitions-enabled="hoverEnabled" :official-token-ids="officialTokenIds" @define="openCard" @word-enter="keepCard" @word-leave="leaveCard" @replay="selectWord" />
           </div>
           <section v-show="tab === 'vocabulary'" id="panel-vocabulary" class="vocabulary-view" role="tabpanel" aria-labelledby="tab-vocabulary">
+            <VocabularyActivity :words="official" :can-hear="canSelectWords" @hear="sayWord" />
             <h2>Words to learn (official)</h2>
             <p v-if="vocabularyStatus" role="status">{{ vocabularyStatus }}</p>
             <p v-else-if="!official.length">This passage has no official word list.</p>
