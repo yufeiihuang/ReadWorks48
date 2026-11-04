@@ -6,7 +6,7 @@ import ReadingAppearance from './components/ReadingAppearance.vue';
 import ColorFocusPanel from './components/ColorFocusPanel.vue';
 import SpeedTip from './components/SpeedTip.vue';
 import { findActiveToken, findLastStartedToken, findSentenceStartSeconds, findWordRange } from './lib/wordTiming.js';
-import { loadGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
+import { loadGeneratedPassage, loadLatestGeneratedPassage, wordClipUrl } from './lib/generatedPassage.js';
 import { loadGradeId, suggestSpeed } from './lib/speedSuggestion.js';
 import { useAudioPlayer } from './composables/useAudioPlayer.js';
 import { useFollowAlong } from './composables/useFollowAlong.js';
@@ -155,7 +155,9 @@ watch(() => player.state.playing, playing => { if (playing) speedTipClosed.value
 async function loadPassage(id) {
   if (referencePassages[id]) return (await referencePassages[id]()).default;
   try {
-    const manifest = await loadGeneratedPassage(id, devManifest(id) || pinnedManifests[id]);
+    const preview = devManifest(id);
+    const manifest = preview ? await loadGeneratedPassage(id, preview)
+      : await loadLatestGeneratedPassage(id, pinnedManifests[id]);
     if (manifest) return manifest;
   } catch { generationWarning.value = 'Audio is temporarily unavailable. The passage is still available to read.'; }
   const response = await fetch(`/api/passages/${encodeURIComponent(id)}`);

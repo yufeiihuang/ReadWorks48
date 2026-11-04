@@ -1,5 +1,6 @@
 """Match timestamped Transcribe words to a known passage without invented timestamps."""
 import difflib
+from collections import Counter
 import hashlib
 import json
 import math
@@ -7,8 +8,8 @@ import re
 import unicodedata
 from pipeline import utf16_length, validate_passage
 
-ALIGNER_VERSION = 3
-WORD = re.compile(r"[^\W_]+(?:['’\-][^\W_]+)*", re.UNICODE)
+ALIGNER_VERSION = 4
+WORD = re.compile(r"\d[\d,]*|[^\W_]+(?:['’\-][^\W_]+)*", re.UNICODE)
 SMALL = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split()
 TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
 
@@ -32,14 +33,16 @@ def canonical_units(text):
     return [re.sub(r'[^\w]', '', part) for part in text.split('-') if re.sub(r'[^\w]', '', part)]
 
 
-def alignment_hash(passage, audio_hash, confidence):
-    source = {key: passage[key] for key in ('id','revision','title','language','paragraphs')}
+def alignment_hash(passage, audio_hash, confidence, qa_verified=False, audio_url=None):
+    source = {key: passage[key] for key in ('id','revision','title','language','paragraphs','source','audio') if key in passage}
     return hashlib.sha256(json.dumps({'passage':source,'audioHash':audio_hash,
-        'confidence':confidence,'alignerVersion':ALIGNER_VERSION},sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        'confidence':confidence,'qaVerified':qa_verified,'audioUrl':audio_url,'alignerVersion':ALIGNER_VERSION},sort_keys=True,ensure_ascii=False).encode()).hexdigest()
 
 
-def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8):
+def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8, qa_verified=False):
     validate_passage(passage)
+    if not isinstance(qa_verified, bool):
+        raise ValueError('qa_verified must be a boolean')
     if not 0 <= minimum_confidence <= 1:
         raise ValueError('Confidence threshold must be between 0 and 1')
     source_words, source_units = [], []
@@ -57,12 +60,15 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8):
         if item['type'] != 'pronunciation': continue
         alternative = item['alternatives'][0]
         start, end = float(item['start_time'])*1000, float(item['end_time'])*1000
-        if not all(math.isfinite(t) for t in (start,end)) or start < previous_start or end <= start:
+        if not all(math.isfinite(t) for t in (start,end)) or start < 0 or start < previous_start or end <= start:
             raise ValueError('Transcription timestamps must be ordered and valid')
         previous_start = start
         index = len(speech)
+        confidence = float(alternative.get('confidence', 0))
+        if not math.isfinite(confidence) or not 0 <= confidence <= 1:
+            raise ValueError('Transcription confidence must be between 0 and 1')
         speech.append({'text':alternative['content'],'startMs':start,'endMs':end,
-                       'confidence':float(alternative.get('confidence',0))})
+                       'confidence':confidence})
         speech_units.extend((unit,index) for unit in canonical_units(alternative['content']))
     matcher = difflib.SequenceMatcher(None,[unit for unit,_ in source_units],
                                      [unit for unit,_ in speech_units],autojunk=False)
@@ -70,11 +76,47 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8):
     for block in matcher.get_matching_blocks():
         for offset in range(block.size):
             mapping[block.a+offset] = block.b+offset
+    # QA verifies the recording against the source text, not the ASR spelling.
+    # Recover small one-to-one recognition substitutions between exact context anchors.
+    # Do not assign introductions, missing ASR words, or many-to-one phrases a guessed time.
+    recovered_units = set()
+    source_unit_counts = Counter(i for _,i in source_units)
+    speech_unit_counts = Counter(i for _,i in speech_units)
+    if qa_verified:
+        operations = matcher.get_opcodes()
+        for op_index, (kind, a, b, c, d) in enumerate(operations):
+            if kind != 'replace' or not 0 < b-a == d-c <= 3:
+                continue
+            if op_index == 0 or op_index == len(operations)-1:
+                continue
+            before, after = operations[op_index-1], operations[op_index+1]
+            if before[0] != 'equal' or after[0] != 'equal':
+                continue
+            if before[2]-before[1] < 2 or after[2]-after[1] < 2:
+                continue
+            # Expanded numbers / hyphenated words are not independent timestamps.
+            source_ids = [source_units[i][1] for i in range(a,b)]
+            speech_ids = [speech_units[i][1] for i in range(c,d)]
+            if len(set(source_ids)) != b-a or len(set(speech_ids)) != d-c:
+                continue
+            if any(source_unit_counts[i] != 1 for i in source_ids):
+                continue
+            if any(speech_unit_counts[i] != 1 for i in speech_ids):
+                continue
+            for offset in range(b-a):
+                mapping[a+offset] = c+offset
+                recovered_units.add(a+offset)
     units_by_word = {}
     for index, (_, word_index) in enumerate(source_units):
         units_by_word.setdefault(word_index,[]).append(index)
     tokens, timings, uncertain, phrase_level = [], [], [], []
     used_speech = set()
+    # Index ownership once instead of scanning every match for every word.
+    speech_owners = {}
+    for source_unit, speech_unit in mapping.items():
+        speech_owners.setdefault(speech_units[speech_unit][1],set()).add(source_units[source_unit][1])
+    recovered_words = []
+    low_confidence_matches = []
     first_timing = None
     last_timing = -1
     for index, word in enumerate(source_words):
@@ -85,7 +127,7 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8):
         speech_ids = {speech_units[mapping[unit]][1] for unit in units}
         items = [speech[i] for i in sorted(speech_ids)]
         confidence = min(item['confidence'] for item in items)
-        if confidence < minimum_confidence:
+        if confidence < minimum_confidence and not qa_verified:
             uncertain.append({**word,'reason':'low_confidence','confidence':confidence})
             continue
         start = min(item['startMs'] for item in items)
@@ -93,34 +135,39 @@ def align(passage, transcript, audio_hash, audio_url, minimum_confidence=.8):
         if start < last_timing:
             uncertain.append({**word,'reason':'nonmonotonic'})
             continue
-        shared = any(sum(1 for unit, target in mapping.items()
-                         if speech_units[target][1]==speech_id and source_units[unit][1]!=index)>0
-                     for speech_id in speech_ids)
+        shared = any(speech_owners[speech_id] != {index} for speech_id in speech_ids)
         precision = 'word'
         if shared:
             phrase_level.append(word['id'])
             uncertain.append({**word, 'reason': 'phrase_only', 'confidence': confidence})
             continue
+        if any(unit in recovered_units for unit in units):
+            recovered_words.append(word['id'])
+        if confidence < minimum_confidence:
+            low_confidence_matches.append(word['id'])
         tokens.append(word)
         timings.append({'tokenId':word['id'],'startMs':round(start,3),'endMs':round(end,3),
-                        'confidence':confidence,'precision':precision})
+                        'confidence':confidence,'precision':precision,
+                        'matchMethod':'qa-context' if any(unit in recovered_units for unit in units) else 'exact'})
         used_speech.update(speech_ids)
         if first_timing is None: first_timing=start
         last_timing=start
     if not tokens:
         raise ValueError('No words matched confidently enough to preview')
-    digest = alignment_hash(passage,audio_hash,minimum_confidence)
+    digest = alignment_hash(passage,audio_hash,minimum_confidence,qa_verified,audio_url)
     prefix = f"/generated/{passage['id']}/human-{digest[:24]}"
     report = {'sourceWords':len(source_words),'alignedWords':len(tokens),
               'coverage':len(tokens)/len(source_words),'uncertainWords':uncertain,
               'phraseLevelTokenIds':phrase_level,'firstPassageWordMs':first_timing,
               'unassignedSpeech':[item for i,item in enumerate(speech) if i not in used_speech],
-              'minimumConfidence':minimum_confidence,'needsReview':bool(uncertain or phrase_level)}
+              'minimumConfidence':minimum_confidence,'qaVerified':qa_verified,
+              'contextRecoveredTokenIds':recovered_words,'acceptedLowConfidenceTokenIds':low_confidence_matches,
+              'needsReview':bool(uncertain or phrase_level)}
     manifest = {**passage,'schemaVersion':1,'assetVersion':'human-'+digest[:24],
                 'audio':{'url':prefix+'/audio.mp3','sourceUrl':audio_url,'engine':'human','voice':'Original ReadWorks narrator','sha256':audio_hash},
                 'tokens':tokens,'timings':timings,'timingsUrl':prefix+'/timings.json',
                 'alignment':{'method':'transcribe-text-matching','reportUrl':prefix+'/alignment-report.json',
-                             **{k:report[k] for k in ('sourceWords','alignedWords','coverage','needsReview','minimumConfidence')}},
+                             **{k:report[k] for k in ('sourceWords','alignedWords','coverage','needsReview','minimumConfidence','qaVerified')}},
                 'generation':{'status':'needs_review' if report['needsReview'] else 'aligned',
                               'engine':'human','textHash':digest,'alignerVersion':ALIGNER_VERSION}}
     return manifest,report

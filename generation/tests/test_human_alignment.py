@@ -57,3 +57,70 @@ class HumanAlignmentTests(unittest.TestCase):
     def test_empty_match_is_rejected(self):
         with self.assertRaisesRegex(ValueError,'No words'):
             self.run_align('Garden.', ['Music'])
+
+
+class QaVerifiedAlignmentTests(unittest.TestCase):
+    def align_qa(self, text, words):
+        return align(passage(text), transcript(words), 'abc123', 'https://example.com/audio.mp3', qa_verified=True)
+
+    def test_qa_exact_matches_keep_real_times_even_with_low_asr_confidence(self):
+        manifest, report = self.align_qa('The park is quiet.', [('The', .2), 'park', 'is', 'quiet'])
+        self.assertEqual(report['coverage'], 1)
+        self.assertEqual(manifest['timings'][0]['startMs'], 0)
+        self.assertEqual(manifest['timings'][0]['endMs'], 500)
+        self.assertEqual(manifest['timings'][0]['confidence'], .2)
+        self.assertEqual(report['acceptedLowConfidenceTokenIds'], ['w0'])
+        self.assertFalse(report['needsReview'])
+
+    def test_qa_recovers_name_recognition_between_exact_context_anchors(self):
+        manifest, report = self.align_qa('Meet our friend Doug Widener in the park today.',
+                                         ['Meet', 'our', 'friend', 'Doug', ('Winer', .5), 'in', 'the', 'park', 'today'])
+        name = next(t for t in manifest['tokens'] if t['text'] == 'Widener')
+        timing = next(t for t in manifest['timings'] if t['tokenId'] == name['id'])
+        self.assertEqual(timing['startMs'], 4000)
+        self.assertEqual(timing['endMs'], 4500)
+        self.assertEqual(timing['matchMethod'], 'qa-context')
+        self.assertEqual(report['contextRecoveredTokenIds'], [name['id']])
+        self.assertEqual(report['coverage'], 1)
+
+    def test_qa_does_not_fill_missing_words_or_split_numeric_phrase_times(self):
+        manifest, report = self.align_qa('Over one hundred people love the big park.',
+                                         ['Over', '100', 'people', 'love', 'the', 'park'])
+        words = [t['text'] for t in manifest['tokens']]
+        self.assertNotIn('one', words)
+        self.assertNotIn('hundred', words)
+        self.assertNotIn('big', words)
+        self.assertEqual(report['phraseLevelTokenIds'], ['w1', 'w2'])
+        self.assertTrue(report['needsReview'])
+
+    def test_qa_does_not_reassign_spoken_introduction_or_unanchored_substitution(self):
+        manifest, report = self.align_qa('Maya watered the garden.', ['A', 'Garden', 'Story', 'by', 'Jill', 'Maya', 'watered', 'the', 'garden'])
+        self.assertEqual(manifest['timings'][0]['startMs'], 5000)
+        manifest, report = self.align_qa('Doug Widener loves the park.', ['Doug', 'Winer', 'loves', 'the', 'park'])
+        self.assertNotIn('Widener', [t['text'] for t in manifest['tokens']])
+
+    def test_mode_changes_asset_identity_but_never_source_text(self):
+        data = passage('The park is quiet.')
+        speech = transcript(['The', 'park', 'is', 'quiet'])
+        conservative, _ = align(data, speech, 'abc123', 'https://example.com/a.mp3')
+        verified, _ = align(data, speech, 'abc123', 'https://example.com/a.mp3', qa_verified=True)
+        self.assertNotEqual(conservative['assetVersion'], verified['assetVersion'])
+        self.assertEqual(verified['paragraphs'], data['paragraphs'])
+
+    def test_grouped_numeral_is_one_display_token_with_utf16_offsets(self):
+        manifest, report = self.align_qa('😀 1,000 people.', ['one', 'thousand', 'people'])
+        self.assertEqual(report['coverage'], 1)
+        self.assertEqual(manifest['tokens'][0]['text'], '1,000')
+        self.assertEqual(manifest['tokens'][0]['start'], 3)
+        self.assertEqual(manifest['tokens'][0]['end'], 8)
+        self.assertEqual(manifest['timings'][0]['startMs'], 0)
+        self.assertEqual(manifest['timings'][0]['endMs'], 1500)
+
+    def test_invalid_recognition_confidence_and_negative_times_are_rejected(self):
+        for confidence in ['NaN', '-.1', '1.1']:
+            with self.assertRaisesRegex(ValueError, 'confidence'):
+                self.align_qa('Hello.', [('Hello', confidence)])
+        speech = transcript(['Hello'])
+        speech['results']['items'][0]['start_time'] = '-1'
+        with self.assertRaisesRegex(ValueError, 'timestamps'):
+            align(passage('Hello.'), speech, 'hash', 'https://example.com/a.mp3', qa_verified=True)

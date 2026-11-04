@@ -7,20 +7,21 @@ import time
 from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError
-from human_alignment import align, alignment_hash
+from human_alignment import align
 from pipeline import validate_passage
+from readworks import load_passage
+from human_pipeline import transcription_identity, put_json, MAX_AUDIO_BYTES
 
 
 def transcribe(session, bucket, audio_path, language, maximum_wait):
     audio_hash = hashlib.sha256(audio_path.read_bytes()).hexdigest()
     s3, service = session.client('s3'), session.client('transcribe')
-    output_key = f'human-transcripts/{audio_hash}/{language}-v1.json'
+    name, output_key = transcription_identity(audio_hash, language, bucket)
     try:
         response = s3.get_object(Bucket=bucket,Key=output_key)
         with response['Body'] as stream: return json.loads(stream.read()), audio_hash, True
     except ClientError as error:
         if error.response['Error']['Code'] not in ('NoSuchKey','404','NotFound'): raise
-    name = f'soundworks-human-{audio_hash[:32]}-{language}-v1'
     try:
         job = service.get_transcription_job(TranscriptionJobName=name)['TranscriptionJob']
     except ClientError as error:
@@ -46,27 +47,62 @@ def transcribe(session, bucket, audio_path, language, maximum_wait):
     with response['Body'] as stream: return json.loads(stream.read()),audio_hash,False
 
 
+def upload_recording(s3, bucket, path, audio_hash):
+    key=f'human-input/{audio_hash}/audio.mp3'
+    try:
+        existing=s3.head_object(Bucket=bucket,Key=key)
+        if existing.get('Metadata',{}).get('sha256') == audio_hash and existing.get('ContentLength') == path.stat().st_size:
+            return key
+    except ClientError as error:
+        if error.response['Error']['Code'] not in ('NoSuchKey','404','NotFound'):
+            raise
+    s3.upload_file(str(path),bucket,key,ExtraArgs={'ContentType':'audio/mpeg','Metadata':{'sha256':audio_hash}})
+    return key
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('passage',type=Path)
+    parser.add_argument('passage',help='Normalized JSON, ReadWorks product JSON, HTTPS URL, or ReadWorks UUID')
     parser.add_argument('--audio',type=Path,required=True,help='Local MP3 of the exact human recording')
     parser.add_argument('--audio-url',required=True,help='Browser-accessible URL for that exact recording')
-    parser.add_argument('--bucket',required=True)
+    parser.add_argument('--bucket',help='Shared passage-assets bucket; required except for offline --transcript runs')
     parser.add_argument('--region',default='us-west-2')
     parser.add_argument('--profile')
     parser.add_argument('--confidence',type=float,default=.8)
     parser.add_argument('--maximum-wait',type=int,default=600)
     parser.add_argument('--output',type=Path,default=Path(__file__).parent/'output'/'human')
+    parser.add_argument('--qa-verified',action='store_true',help='Recording has been manually checked against the authoritative passage text')
+    parser.add_argument('--transcript',type=Path,help='Reuse a local Transcribe JSON file with no AWS calls or new transcription charge')
+    parser.add_argument('--queue',action='store_true',help='Upload the recording and source JSON for the asynchronous AWS workflow')
     parser.add_argument('--publish-preview',action='store_true',help='Publish the experimental manifest, including review diagnostics')
     args=parser.parse_args()
     if not 0 <= args.confidence <= 1: parser.error('--confidence must be between 0 and 1')
     if not args.audio.is_file() or args.audio.suffix.lower() != '.mp3': parser.error('--audio must be an existing MP3 file')
+    if not 0 < args.audio.stat().st_size <= MAX_AUDIO_BYTES: parser.error('--audio must be between 1 byte and 100 MB')
     if not args.audio_url.startswith('https://'): parser.error('--audio-url must use HTTPS')
-    passage=json.loads(args.passage.read_text());validate_passage(passage)
-    session=boto3.Session(profile_name=args.profile,region_name=args.region)
-    transcript,audio_hash,cached=transcribe(session,args.bucket,args.audio,passage['language'],args.maximum_wait)
-    manifest,report=align(passage,transcript,audio_hash,args.audio_url,args.confidence)
-    directory=args.output/passage['id']/alignment_hash(passage,audio_hash,args.confidence)[:24]
+    if args.queue and (args.transcript or args.publish_preview): parser.error('--queue cannot be combined with --transcript or --publish-preview')
+    if not args.bucket and (not args.transcript or args.queue or args.publish_preview): parser.error('--bucket is required for AWS processing or publication')
+    if args.maximum_wait < 0: parser.error('--maximum-wait cannot be negative')
+    passage=load_passage(args.passage);validate_passage(passage)
+    audio_hash=hashlib.sha256(args.audio.read_bytes()).hexdigest()
+    transcription_identity(audio_hash,passage['language'])
+    session=boto3.Session(profile_name=args.profile,region_name=args.region) if args.bucket else None
+    if args.queue:
+        s3=session.client('s3')
+        key=upload_recording(s3,args.bucket,args.audio,audio_hash)
+        request={**passage,'qaVerified':args.qa_verified,'minimumConfidence':args.confidence,
+                 'audio':{'key':key,'sha256':audio_hash,'sourceUrl':args.audio_url}}
+        source_key=f"human-passages/{passage['id']}.json"
+        put_json(s3,args.bucket,source_key,request)
+        print(json.dumps({'status':'queued','sourceKey':source_key,'audioSha256':audio_hash},indent=2))
+        return
+    if args.transcript:
+        transcript=json.loads(args.transcript.read_text())
+        cached=True
+    else:
+        transcript,audio_hash,cached=transcribe(session,args.bucket,args.audio,passage['language'],args.maximum_wait)
+    manifest,report=align(passage,transcript,audio_hash,args.audio_url,args.confidence,qa_verified=args.qa_verified)
+    directory=args.output/passage['id']/manifest['assetVersion'].removeprefix('human-')
     directory.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(args.audio, directory/'audio.mp3')
     for filename,data in [('timings.json',manifest['timings']),('alignment-report.json',report),('manifest.json',manifest)]:

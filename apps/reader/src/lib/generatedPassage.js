@@ -13,12 +13,21 @@ async function fetchManifest(url, fetcher) {
   return manifest;
 }
 
-// Returns null when this passage has not been generated. Throws if its published files are broken.
+// Explicit dev previews remain pinned. Normal reader loads follow the mutable
+// completion pointer, falling back to a demo pin only when no pointer exists yet.
 export async function loadGeneratedPassage(id, pinnedUrl, fetcher = (...args) => fetch(...args)) {
   if (pinnedUrl) return fetchManifest(pinnedUrl, fetcher);
+  return loadLatestGeneratedPassage(id, undefined, fetcher);
+}
+
+export async function loadLatestGeneratedPassage(id, fallbackUrl, fetcher = (...args) => fetch(...args)) {
   if (!VALID_ID.test(id)) return null;
-  const pointer = await fetcher(`/generated/${id}/current.json`);
-  if (!pointer.ok) return null;
+  const pointer = await fetcher(`/generated/${id}/current.json`, { cache: 'no-store' });
+  if (!pointer.ok) {
+    // Private S3 origins return 403 for an absent key when ListBucket is withheld.
+    if (![403, 404].includes(pointer.status)) throw new Error('Generated passage pointer unavailable');
+    return fallbackUrl ? fetchManifest(fallbackUrl, fetcher) : null;
+  }
   const { manifestUrl } = await pointer.json();
   if (typeof manifestUrl !== 'string' || !manifestUrl.startsWith(`/generated/${id}/`)) throw new Error('Invalid passage pointer');
   return fetchManifest(manifestUrl, fetcher);
