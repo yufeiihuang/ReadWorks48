@@ -190,6 +190,7 @@ onMounted(async () => {
               <SpeedTip v-if="speedSuggestion" :question="speedSuggestion.question" :speed="speedSuggestion.speed" @accept="acceptSpeedSuggestion" @dismiss="answerSpeedTip" />
             </template>
           </AudioConsole>
+          <span class="sr-only" role="status"><template v-if="speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template></span>
           <p class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
@@ -200,7 +201,6 @@ onMounted(async () => {
               <template v-else-if="hasIncompleteTimings">Select a word to hear it again. Some words are not available for highlighting.</template>
               <template v-else-if="hasTimings">Select any word to hear it again.</template>
               <template v-else>Press play to listen. Word highlighting is not available for this passage.</template>
-              <span v-if="speedSuggestion" class="sr-only"> {{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</span>
             </span>
             <button v-if="player.state.status === 'error'" type="button" @click="player.retry">Try again</button>
           </p>

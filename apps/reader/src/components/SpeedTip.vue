@@ -30,7 +30,7 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- Doesn't take focus on page load. It follows the speed control in tab order, and
-       App.vue announces it through the status line. -->
+       App.vue announces it through a status region. -->
   <div ref="tip" class="speed-tip" role="group" aria-labelledby="speed-tip-question" :style="{ '--shift': `${shift}px` }">
     <p id="speed-tip-question" class="speed-tip-question">{{ question }}</p>
     <p class="speed-tip-text">Change to {{ speed }}× speed for better listening.</p>
