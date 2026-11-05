@@ -19,10 +19,15 @@ const GRADES = {
 // Returns null when this grade has no suggestion.
 export const suggestSpeed = gradeId => GRADES[gradeId] ?? null;
 
+// Our original demo passage isn't in the ReadWorks catalog, so it has no canonical_grade. It's written
+// for younger readers; 18 is 2nd grade.
+const DEMO_PASSAGE_GRADE_ID = 18;
+
 // Generated manifests don't carry a grade, so existing audio needn't be regenerated to get one.
 // Returns null on any failure: a missing suggestion must never affect reading or listening.
 export async function loadGradeId(passage, fetcher = (...args) => fetch(...args)) {
   if (passage?.gradeId != null) return passage.gradeId;
+  if (passage?.id === 'demo') return DEMO_PASSAGE_GRADE_ID;
   if (!passage?.source?.uuid) return null;
   try {
     const response = await fetcher(`/api/passages/${encodeURIComponent(passage.source.uuid)}`);

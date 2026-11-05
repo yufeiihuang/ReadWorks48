@@ -140,7 +140,7 @@ Every step in the script worked on the live site after PR #17 deployed:
 
 Playback and highlighting were checked through the page's state, not by ear, so **listen to every step in rehearsal**.
 
-- **The speed tip never appears on the default demo passage,** because it has no grade. Use `?passage=park-caretaker-qa` (1st grade → 0.5×). The older `?passage=park-caretaker` also works but highlights only 347 of 360 words.
+- **The speed tip also appears on the garden passage now,** which counts as 2nd grade (0.5×). Pressing **Play** closes it without using it up, so the caretaker passage (`?passage=park-caretaker-qa`, 1st grade) still shows its tip in step 8. Answering it with **Change to 0.5×** or **No thanks**, or changing the speed, uses it up for that browser. Pride and Prejudice shows no tip because it has no grade.
 - **The speed tip appears once per browser and closes as soon as you press Play.** Show it before playing, in a fresh window.
 - **"Hear this word" on the demo** slices the passage recording, because it has no per-word clips yet. A word followed by a pause, such as "sunrise." or "can.", should cut most cleanly; check by ear.
 - **Justified text at 175–200%** leaves big gaps between words (`apps/reader/src/style.css`, `.passage { text-align: justify }`). It's cosmetic, but left-aligned text is usually easier for dyslexic readers.

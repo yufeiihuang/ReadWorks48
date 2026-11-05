@@ -28,9 +28,16 @@ test('reads a grade from the passage, or asks the API using the ReadWorks ID', a
   assert.deepEqual(urls, ['/api/passages/abc-123']);
 });
 
+test('the original demo passage counts as 2nd grade without asking the API', async () => {
+  const id = await loadGradeId({ id: 'demo' }, () => { throw new Error('no request expected'); });
+  assert.equal(id, 18);
+  assert.equal(suggestSpeed(id).question, 'Are you in 2nd grade?');
+  assert.equal(suggestSpeed(id).speed, 0.5);
+});
+
 test('a missing grade never raises an error', async () => {
   const fail = () => assert.fail('should not fetch');
-  assert.equal(await loadGradeId({ id: 'demo' }, fail), null);
+  assert.equal(await loadGradeId({ id: 'pride-and-prejudice' }, fail), null);
   assert.equal(await loadGradeId(null, fail), null);
   assert.equal(await loadGradeId({ source: { uuid: 'x' } }, async () => ({ ok: false })), null);
   assert.equal(await loadGradeId({ source: { uuid: 'x' } }, async () => { throw new Error('offline'); }), null);
