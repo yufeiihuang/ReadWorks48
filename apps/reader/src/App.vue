@@ -25,7 +25,7 @@ const referencePassages = { 'pride-and-prejudice': () => import('../../../shared
 // (falling back to the pin), and promoting it means updating the pin here.
 const pinnedManifests = {
   'pride-and-prejudice': '/generated/pride-and-prejudice/52ccc5bde7a7f306f197-305603da9965/manifest.json',
-  demo: '/generated/demo/adbeeb10a403af4424e1-4386b7353988/manifest.json',
+  demo: '/generated/demo/23de50f734316922127b-659d13f1b99f/manifest.json',
   'park-caretaker': '/generated/park-caretaker/human-712a36cf65895354e6b551d5/manifest.json',
 };
 const audioAllowed = new URLSearchParams(window.location.search).get('audio') !== 'off';
