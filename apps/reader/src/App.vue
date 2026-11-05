@@ -87,6 +87,8 @@ function toggleHighlighting() {
   if (highlightEnabled.value) { highlightDismissed.value = false; resumeFollowing(); }
 }
 watch(() => player.state.playing, playing => { if (playing) highlightDismissed.value = false; });
+// The audio controls only show on the Passage tab, so nothing may keep playing without them.
+watch(tab, name => { if (name !== 'passage') player.pause(); });
 function dismissWordSelection(event) {
   if (event.target.closest('.audio-toolbar')) { highlightDismissed.value = false; return; }
   if (event.target.closest('button, a, input, select, label, [data-token-id]')) return;
@@ -218,7 +220,7 @@ onMounted(async () => {
       </section>
       <div class="article-layout">
         <article aria-label="Passage">
-          <AudioConsole v-if="audioAllowed"
+          <AudioConsole v-if="audioAllowed" v-show="tab === 'passage'"
             :disabled="audioUnavailable"
             :playing="player.state.playing"
             :current-time="player.state.currentTime"
@@ -259,10 +261,10 @@ onMounted(async () => {
                message lives here (not in the in-flow .audio-status) so showing/hiding it never
                shifts the passage; the visible pause UI is the fixed-position "Keep going" button. -->
           <span class="sr-only" role="status">
-            <template v-if="speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template>
+            <template v-if="tab === 'passage' && speedSuggestion">{{ speedSuggestion.question }} Change to {{ speedSuggestion.speed }}× speed for better listening. The options follow the speed menu.</template>
             <template v-else-if="finishedPart !== null">Part {{ finishedPart + 1 }} of {{ focusParts.length }} done. Select Keep going when you're ready.</template>
           </span>
-          <p v-if="audioAllowed && (generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings)" class="audio-status">
+          <p v-if="audioAllowed && tab === 'passage' && (generationWarning || audioUnavailable || player.state.error || player.state.status === 'loading' || player.state.buffering || hasIncompleteTimings || !hasTimings)" class="audio-status">
             <span role="status">
               <template v-if="generationWarning">{{ generationWarning }}</template>
               <template v-else-if="player.state.status === 'empty'">Audio isn't ready for this passage yet. You can still read it.</template>
@@ -289,7 +291,6 @@ onMounted(async () => {
             <p class="vocabulary-description">Words you’ve saved.</p>
             <p v-if="!myWords.length">Add words with the star in a definition card.</p>
             <VocabularyWord collapsible v-for="entry in myWords" :key="entry.word" :entry="entry" saved :can-hear="canSelectWords" @hear="sayWord" @toggle="toggleWord" />
-            <small class="vocabulary-credit">Definitions from <a href="https://simple.wiktionary.org/" target="_blank" rel="noopener">Simple English Wiktionary</a> and <a href="https://en.wiktionary.org/" target="_blank" rel="noopener">English Wiktionary</a> (CC BY-SA 4.0).</small>
           </section>
           <p class="passage-credit"><template v-if="isReadWorks || isReference">Passage from <a v-if="passage.source?.url" :href="passage.source.url">ReadWorks</a><template v-else>ReadWorks</template><template v-if="passage.source?.author"> · {{ passage.source.author }}</template></template><template v-else>Original demonstration passage · SoundWorks</template></p>
         </article>
@@ -303,7 +304,7 @@ onMounted(async () => {
         </aside>
       </div>
       <div class="floating-actions">
-        <button v-if="finishedPart !== null" type="button" class="part-break" @click="keepGoing">
+        <button v-if="tab === 'passage' && finishedPart !== null" type="button" class="part-break" @click="keepGoing">
           <span class="part-done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>Part {{ finishedPart + 1 }} of {{ focusParts.length }} done</span>
           <span class="keep-going">Keep going<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg></span>
         </button>
