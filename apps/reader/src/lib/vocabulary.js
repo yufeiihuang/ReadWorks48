@@ -18,3 +18,13 @@ export function readMyWords(storage, id) {
     return Array.isArray(list) ? list.filter(item => item && typeof item.word === 'string' && typeof item.sentence === 'string' && typeof item.definition === 'string') : [];
   } catch { return []; }
 }
+
+// Our original demo passage isn't in the ReadWorks catalog, so it has no official word list. Matched by
+// word, not token ID, because a recording that reads the title first shifts every ID.
+const DEMO_WORDS = ['community', 'sunrise', 'seedlings'];
+export function demoWordList(tokens = []) {
+  return DEMO_WORDS.map(word => ({
+    word,
+    occurrences: tokens.filter(token => token.text.toLowerCase() === word).map(token => ({ tokenIds: [token.id] })),
+  })).filter(entry => entry.occurrences.length);
+}

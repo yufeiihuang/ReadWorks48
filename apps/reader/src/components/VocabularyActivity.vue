@@ -33,7 +33,7 @@ const SpeakerIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke:
 .vocabulary-activity p { font-size: 17px; line-height: 1.65; margin: 0 0 22px; }
 .instruction-speaker { display: inline-block; width: 23px; height: 23px; vertical-align: middle; margin-left: 4px; }
 .familiarity-rows { display: grid; gap: 24px; margin: 36px 0 24px; }
-.familiarity-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; gap: 16px; }
+.familiarity-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 16px; }
 .familiarity-word { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .familiarity-word label { font-size: 19px; font-weight: 650; overflow-wrap: anywhere; }
 .word-speaker { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 0; background: none; color: inherit; padding: 4px; cursor: pointer; }
@@ -45,7 +45,7 @@ const SpeakerIcon = () => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke:
 .familiarity-row input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; border: 1px solid #929b95; border-radius: 50%; background: white; margin-top: -6px; }
 .familiarity-row input::-moz-range-thumb { width: 24px; height: 24px; border: 1px solid #929b95; border-radius: 50%; background: white; }
 .familiarity-row input:focus-visible, .word-speaker:focus-visible { outline: 3px solid #db9d22; outline-offset: 4px; border-radius: 4px; }
-.familiarity-legend { margin-left: 146px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; text-align: center; font-size: 13px; line-height: 1.6; }
+.familiarity-legend { margin-left: 186px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; text-align: center; font-size: 13px; line-height: 1.6; }
 .legend-color { display: block; height: 16px; margin-bottom: 12px; }
 .level-0 { background: #f5eb69; } .level-1 { background: #d9e21d; } .level-2 { background: #8cc33f; } .level-3 { background: #36b34a; }
 @media (max-width: 600px) { .vocabulary-activity { padding: 24px 18px; } .vocabulary-activity p { font-size: 16px; } .familiarity-row { grid-template-columns: 1fr; gap: 4px; } .familiarity-rows { gap: 18px; } .familiarity-legend { margin-left: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; } }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { definitionGesture } from '../src/lib/definitionGesture.js';
-import { ensureTokens, wordContext, readMyWords } from '../src/lib/vocabulary.js';
+import { demoWordList, ensureTokens, wordContext, readMyWords } from '../src/lib/vocabulary.js';
 function setup() {
   let now=0, sequence=0; const jobs=new Map(), opened=[];
   const gesture=definitionGesture(value=>opened.push(value),{set:(fn,delay)=>{jobs.set(++sequence,{at:now+delay,fn});return sequence;},clear:id=>jobs.delete(id)});
@@ -26,4 +26,14 @@ test('context preserves sentence punctuation and storage survives bad or unavail
   const word=wordContext(passage,'p1-18');assert.equal(word.sentence,'The bird rests.');assert.equal(word.before,'The ');assert.equal(word.after,' rests.');assert.equal(word.midSentence,true);
   assert.deepEqual(readMyWords({getItem:()=>'{broken'},'demo'),[]);assert.deepEqual(readMyWords({getItem:()=>{throw Error();}},'demo'),[]);
   const entry={word:'bird',sentence:'A bird sings.',definition:'An animal.'};assert.deepEqual(readMyWords({getItem:()=>JSON.stringify([entry,null,{}])},'demo'),[entry]);
+});
+
+test('demo word list finds its words in either recording, whatever their token IDs', () => {
+  const body = ['Maya', 'community', 'Community', 'sunrise', 'seedlings'];
+  const tokens = offset => body.map((text, index) => ({ id: `w${index + offset}`, text }));
+  assert.deepEqual(demoWordList(tokens(0)).map(entry => entry.word), ['community', 'sunrise', 'seedlings']);
+  assert.deepEqual(demoWordList(tokens(0))[0].occurrences, [{ tokenIds: ['w1'] }, { tokenIds: ['w2'] }]);
+  assert.deepEqual(demoWordList(tokens(5))[1].occurrences, [{ tokenIds: ['w8'] }]);
+  assert.deepEqual(demoWordList([{ id: 'w0', text: 'Maya' }]), []);
+  assert.deepEqual(demoWordList(), []);
 });

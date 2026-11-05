@@ -1,5 +1,5 @@
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue';
-import { wordContext, readMyWords } from '../lib/vocabulary.js';
+import { demoWordList, wordContext, readMyWords } from '../lib/vocabulary.js';
 export function useVocabulary(passage, passageId) {
   const tab = ref('passage'), official = ref([]), officialTokenIds = ref([]), vocabularyStatus = ref('');
   const myWords = ref((() => { try { return readMyWords(localStorage, passageId); } catch { return []; } })());
@@ -27,9 +27,13 @@ export function useVocabulary(passage, passageId) {
   async function loadVocabulary() {
     vocabularyStatus.value = 'Loading word list…';
     try {
-      const response = await fetch(`/api/passages/${encodeURIComponent(passageId)}/vocabulary`);
-      if (!response.ok) throw new Error();
-      const words = await response.json();
+      let words;
+      if (passageId === 'demo') words = demoWordList(passage.value?.tokens);
+      else {
+        const response = await fetch(`/api/passages/${encodeURIComponent(passageId)}/vocabulary`);
+        if (!response.ok) throw new Error();
+        words = await response.json();
+      }
       officialTokenIds.value = words.flatMap(word => word.occurrences.flatMap(item => item.tokenIds));
       const entries = await Promise.all(words.map(word => entryFor(word.occurrences[0].tokenIds[0])));
       official.value = entries.filter(Boolean);
